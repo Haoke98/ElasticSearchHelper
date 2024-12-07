@@ -53,7 +53,7 @@ def guess_field_meaning(field_name):
 
 if __name__ == '__main__':
     with open('field-table-meaning-guessed.csv', 'w', encoding='utf-8') as fw, open('field-table.csv', 'r',
-                                                                            encoding='utf-8') as fr:
+                                                                                    encoding='utf-8') as fr:
         writer = csv.writer(fw)
         reader = csv.reader(fr)
         header = next(reader)

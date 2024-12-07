@@ -39,6 +39,8 @@ def core(_row, parent_field_full_name=None, level: int = 1):
     print(str(i).rjust(3, " "), _field_full_name.ljust(80, " "), ":", "\t\t\t" * (level - 1), _field_name)
     field_data = {"type": _field_type}
     if _field_type == 'object':
+        field_data["type"] = "nested"
+        field_data["dynamic"] = True
         field_properties = {}
         children = get_all_children(_field_full_name)
         for child in children:
@@ -66,7 +68,7 @@ def core(_row, parent_field_full_name=None, level: int = 1):
 if __name__ == '__main__':
     i = 0
     fields = []
-    with open('field_table.csv', 'r', encoding='utf-8') as f:
+    with open('field-table.csv', 'r', encoding='utf-8') as f:
         reader = csv.reader(f)
         header = next(reader)
         for row in reader:
@@ -78,6 +80,6 @@ if __name__ == '__main__':
         if "." not in field_name:
             properties[field_name] = core(row)
 
-    with open('mappings_generated.json', 'w', encoding='utf-8') as f_out:
+    with open('mappings-generated-obj2nested.json', 'w', encoding='utf-8') as f_out:
         data = {"mappings": {"properties": properties}}
         f_out.write(json.dumps(data, indent=4, ensure_ascii=False))
