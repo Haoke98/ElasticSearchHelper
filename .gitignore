@@ -128,3 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 /secret.py
+/map/field_table_hzxy_ent.csv
+/map/mappings_export_hzxy_ent.json
