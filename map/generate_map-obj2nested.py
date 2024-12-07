@@ -9,23 +9,7 @@
 import csv
 import json
 
-
-def get_all_children(parent_field_full_name: str):
-    """
-
-    :param parent_field_full_name: full name
-    :return:
-    """
-    global fields, i
-    result = []
-    for _row in fields:
-        (child_field_full_name, child_field_type, child_field_ignore_above, child_field_analyser) = _row
-        if child_field_full_name.startswith(parent_field_full_name):
-            if child_field_full_name != parent_field_full_name:
-                child_field_name = child_field_full_name[len(parent_field_full_name) + 1:]
-                if "." not in child_field_name:
-                    result.append([child_field_name, child_field_type, child_field_ignore_above, child_field_analyser])
-    return result
+from map.generate_map import get_all_children
 
 
 def core(_row, parent_field_full_name=None, level: int = 1):
