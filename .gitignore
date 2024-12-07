@@ -129,4 +129,4 @@ dmypy.json
 .pyre/
 /secret.py
 /map/field_table_hzxy_ent.csv
-/map/mappings_export_hzxy_ent.json
+/map/mappings_export_hzxy_nation_global_enterprise.json
