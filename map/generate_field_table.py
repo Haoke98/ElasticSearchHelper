@@ -44,15 +44,13 @@ def parse_field_content(properties: dict, parent_field_name=None):
 
 def main(_jsonfile):
     data: dict = json.load(_jsonfile)
-    for index, v in data.items():
-        mappings = v['mappings']
-        print(f"INDEX[{index}]:")
-        properties = mappings['properties']
-        parse_field_content(properties)
+    mappings = data["mappings"]
+    properties = mappings['properties']
+    parse_field_content(properties)
 
 
 if __name__ == '__main__':
-    with open('field_table.csv', 'w', newline='') as csvfile, open('mappings_export_hzxy_nation_global_enterprise.json', 'r',
+    with open('field-table.csv', 'w', newline='') as csvfile, open('mappings_export_hzxy_nation_global_enterprise.json', 'r',
                                                                    encoding='utf-8') as jsonfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Field', 'Type', 'Ignore Above', 'Analyzer'])
