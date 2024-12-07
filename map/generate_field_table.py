@@ -52,7 +52,7 @@ def main(_jsonfile):
 
 
 if __name__ == '__main__':
-    with open('field_table.csv', 'w', newline='') as csvfile, open('mappings_export_hzxy_ent.json', 'r',
+    with open('field_table.csv', 'w', newline='') as csvfile, open('mappings_export_hzxy_nation_global_enterprise.json', 'r',
                                                                    encoding='utf-8') as jsonfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Field', 'Type', 'Ignore Above', 'Analyzer'])

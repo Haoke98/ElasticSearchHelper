@@ -130,3 +130,5 @@ dmypy.json
 /secret.py
 /map/field_table_hzxy_ent.csv
 /map/mappings_export_hzxy_nation_global_enterprise.json
+/map/mappings_generated.json
+/map/field_table.csv
