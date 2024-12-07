@@ -61,7 +61,7 @@ def core(_row, parent_field_full_name=None, level: int = 1):
     if _ignore_above is not None and _ignore_above.strip() != "":
         field_data['ignore_above'] = int(_ignore_above)
     if _analyser is not None and _analyser.strip() != "":
-        field_data['analyser'] = _analyser
+        field_data['analyzer'] = _analyser
     return field_data
 
 
