@@ -12,7 +12,7 @@ import json
 from map.generate_map import get_all_children
 
 
-def core(_row, parent_field_full_name=None, parent_field_type=None, level: int = 1):
+def core(_row, parent_field_full_name=None, parent_field_type=None, level: int = 1, nestedTypeMinLevel: int = 1):
     global i
     if len(_row) == 4:
         _field_name, _field_type, _ignore_above, _analyser = _row
@@ -23,10 +23,11 @@ def core(_row, parent_field_full_name=None, parent_field_type=None, level: int =
     else:
         _field_full_name = str(parent_field_full_name) + "." + _field_name
     i += 1
-    print(str(i).rjust(3, " "), _field_full_name.ljust(80, " "), ":", "\t\t\t" * (level - 1), _field_name)
+    xxx = f"{_field_type}:{level}"
+    print(str(i).rjust(3, " "), _field_full_name.ljust(80, " "), ":", "\t\t\t" * (level - 1), _field_name, xxx)
     field_data = {"type": _field_type}
     if _field_type == 'object':
-        if parent_field_type != "text":
+        if parent_field_type != "text" and level <= nestedTypeMinLevel:
             # 如果上一个字段是text, 则这是一个multi-field字段, multi-field字段是不支持nested类型, 只支持keyword类型
             # Type [nested] cannot be used in multi field
             field_data["type"] = "nested"
