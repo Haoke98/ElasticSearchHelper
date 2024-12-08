@@ -12,9 +12,12 @@ import json
 from map.generate_map import get_all_children
 
 
-def core(_row, parent_field_full_name=None, level: int = 1):
+def core(_row, parent_field_full_name=None, parent_field_type=None, level: int = 1):
     global i
-    _field_name, _field_type, _ignore_above, _analyser = _row
+    if len(_row) == 4:
+        _field_name, _field_type, _ignore_above, _analyser = _row
+    if len(_row) == 5:
+        _field_name, _field_type, _ignore_above, _analyser, _field_full_name = _row
     if parent_field_full_name is None:
         _field_full_name = _field_name
     else:
@@ -23,21 +26,24 @@ def core(_row, parent_field_full_name=None, level: int = 1):
     print(str(i).rjust(3, " "), _field_full_name.ljust(80, " "), ":", "\t\t\t" * (level - 1), _field_name)
     field_data = {"type": _field_type}
     if _field_type == 'object':
-        field_data["type"] = "nested"
-        field_data["dynamic"] = True
+        if parent_field_type != "text":
+            # 如果上一个字段是text, 则这是一个multi-field字段, multi-field字段是不支持nested类型, 只支持keyword类型
+            # Type [nested] cannot be used in multi field
+            field_data["type"] = "nested"
+            field_data["dynamic"] = True
         field_properties = {}
-        children = get_all_children(_field_full_name)
+        children = get_all_children(_field_full_name, fields)
         for child in children:
             child_name = child[0]
-            field_properties[child_name] = core(child, _field_full_name, level + 1)
+            field_properties[child_name] = core(child, _field_full_name, _field_type, level + 1)
         if field_properties != {}:
             field_data['properties'] = field_properties
     elif _field_type == 'text':
         _fields = {}
-        children = get_all_children(_field_full_name)
+        children = get_all_children(_field_full_name, fields)
         for child in children:
             child_name = child[0]
-            _fields[child_name] = core(child, _field_full_name, level + 1)
+            _fields[child_name] = core(child, _field_full_name, _field_type, level + 1)
         if _fields != {}:
             field_data['fields'] = _fields
     else:

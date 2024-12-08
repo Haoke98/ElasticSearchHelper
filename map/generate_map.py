@@ -10,27 +10,37 @@ import csv
 import json
 
 
-def get_all_children(parent_field_full_name: str):
+def get_all_children(parent_field_full_name: str, _fields):
     """
 
     :param parent_field_full_name: full name
     :return:
     """
-    global fields, i
+    parent_field_parts = parent_field_full_name.split('.')
     result = []
-    for _row in fields:
+    for _row in _fields:
         (child_field_full_name, child_field_type, child_field_ignore_above, child_field_analyser) = _row
         if child_field_full_name.startswith(parent_field_full_name):
             if child_field_full_name != parent_field_full_name:
-                child_field_name = child_field_full_name[len(parent_field_full_name) + 1:]
-                if "." not in child_field_name:
-                    result.append([child_field_name, child_field_type, child_field_ignore_above, child_field_analyser])
+                child_field_parts = child_field_full_name.split('.')
+                if len(parent_field_parts) + 1 == len(child_field_parts):
+                    matched = True
+                    for i in range(len(parent_field_parts)):
+                        if parent_field_parts[i] != child_field_parts[i]:
+                            matched = False
+                    if matched:
+                        child_field_name = child_field_parts[- 1]
+                        result.append([child_field_name, child_field_type, child_field_ignore_above,
+                                       child_field_analyser, child_field_full_name])
     return result
 
 
 def core(_row, parent_field_full_name=None, level: int = 1):
-    global i
-    _field_name, _field_type, _ignore_above, _analyser = _row
+    global i, fields
+    if len(_row) == 4:
+        _field_name, _field_type, _ignore_above, _analyser = _row
+    if len(_row) == 5:
+        _field_name, _field_type, _ignore_above, _analyser, _field_full_name = _row
     if parent_field_full_name is None:
         _field_full_name = _field_name
     else:
@@ -40,7 +50,7 @@ def core(_row, parent_field_full_name=None, level: int = 1):
     field_data = {"type": _field_type}
     if _field_type == 'object':
         field_properties = {}
-        children = get_all_children(_field_full_name)
+        children = get_all_children(_field_full_name, fields)
         for child in children:
             child_name = child[0]
             field_properties[child_name] = core(child, _field_full_name, level + 1)
@@ -48,7 +58,7 @@ def core(_row, parent_field_full_name=None, level: int = 1):
             field_data['properties'] = field_properties
     elif _field_type == 'text':
         _fields = {}
-        children = get_all_children(_field_full_name)
+        children = get_all_children(_field_full_name, fields)
         for child in children:
             child_name = child[0]
             _fields[child_name] = core(child, _field_full_name, level + 1)
