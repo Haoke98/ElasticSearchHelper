@@ -8,9 +8,11 @@
 ======================================="""
 from dotenv import load_dotenv
 
-from task import show
+from map.generate_field_table import export_field_table
+from task.task import show
 
 if __name__ == '__main__':
     # show("wKzbDaI7SXqHimMRZBgHxg:84423362")
     load_dotenv('/Users/shadikesadamu/SLRC/数据处理工具/python/.env')
     show("zJ9FtKuNSqi4mycedlvMRg:466125529")
+    export_field_table('hzxy_nation_global_enterprise')

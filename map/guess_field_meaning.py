@@ -51,15 +51,21 @@ def guess_field_meaning(field_name):
         })
 
 
-if __name__ == '__main__':
-    with open('field-table-meaning-guessed.csv', 'w', encoding='utf-8') as fw, open('field-table.csv', 'r',
-                                                                                    encoding='utf-8') as fr:
+def generate_meaning_guessed_field_table(ordinary_field_table_fp: str, meaning_guessed_field_table_fp: str,
+                                         field_full_name_col_index: int = 0):
+    with open(meaning_guessed_field_table_fp, 'w', encoding='utf-8') as fw, open(ordinary_field_table_fp, 'r',
+                                                                                 encoding='utf-8') as fr:
         writer = csv.writer(fw)
         reader = csv.reader(fr)
-        header = next(reader)
+        header = next(reader) + ["Meaning"]
+        writer.writerow(header)
         for i, row in enumerate(reader, 1):
-            field_full_name, field_type, ignore_above, analyser = row
-            print(i, field_full_name, field_type, ignore_above, analyser, end=': ')
+            field_full_name = row[field_full_name_col_index]
+            print(i, field_full_name, end=': ')
             meaning = guess_field_meaning(field_full_name)
             print(meaning)
-            writer.writerow([field_full_name, meaning, field_type, ignore_above, analyser])
+            writer.writerow(row + [meaning])
+
+
+if __name__ == '__main__':
+    generate_meaning_guessed_field_table('field-table.csv', 'field-table-meaning-guessed.csv')
