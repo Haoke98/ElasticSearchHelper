@@ -8,6 +8,9 @@
 
 ```shell
 python main.py task --id "zJ9FtKuNSqi4mycedlvMRg:467516690"
+```
+结果: 
+```text
 状态：正在运行.....
 已运行：0:58:30.512872
 进度：23.071283420651266 %
@@ -26,6 +29,9 @@ python main.py task --id "zJ9FtKuNSqi4mycedlvMRg:467516690"
 
 ```shell
 python main.py generate-map -i index-meaning-guessed-field-table-generated-hzxy_nation_global_enterprise-fixed.csv --obj2nested
+```
+结果:
+```text
   1 abnormalOperationData                                                            :  abnormalOperationData object:1
   2 abnormalOperationData.totalNum                                                   :                   totalNum long:2
   3 administrativeLicensingData                                                      :  administrativeLicensingData object:1
