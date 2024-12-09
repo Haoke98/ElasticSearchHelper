@@ -7,14 +7,8 @@
 @disc:
 ======================================="""
 import datetime
-
+import os
 from elasticsearch import Elasticsearch
-
-import secret
-
-EsClient = Elasticsearch(secret.ES.host, http_auth=(secret.ES.username, secret.ES.password),
-                         ca_certs=secret.ES.CA_CERTS,
-                         timeout=3600)
 
 
 def show(id: str):
@@ -23,6 +17,9 @@ def show(id: str):
     :param id:
     :return:
     """
+    EsClient = Elasticsearch(hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
+                             http_auth=(os.getenv("SLRC_ES_USERNAME"), os.getenv("SLRC_ES_PASSWORD")),
+                             ca_certs=os.getenv("SLRC_ES_CA"), request_timeout=3600)
     resp = EsClient.tasks.get(task_id=id)
     task = resp.get("task")
     status = task.get("status")
