@@ -11,9 +11,15 @@ import json
 
 from map.generate_map import get_all_children
 
+# ES 内部限定, 无法修改
+TYPE_NESTED_MAX_LIMIT = 50
+
+# 全局变量
+type_nested_count = 0
+
 
 def core(_row, parent_field_full_name=None, parent_field_type=None, level: int = 1, nestedTypeMinLevel: int = 1):
-    global i
+    global i, type_nested_count
     if len(_row) == 4:
         _field_name, _field_type, _ignore_above, _analyser = _row
     if len(_row) == 5:
@@ -27,11 +33,12 @@ def core(_row, parent_field_full_name=None, parent_field_type=None, level: int =
     print(str(i).rjust(3, " "), _field_full_name.ljust(80, " "), ":", "\t\t\t" * (level - 1), _field_name, xxx)
     field_data = {"type": _field_type}
     if _field_type == 'object':
-        if parent_field_type != "text" and level <= nestedTypeMinLevel:
+        if parent_field_type != "text" and level <= nestedTypeMinLevel and type_nested_count < TYPE_NESTED_MAX_LIMIT:
             # 如果上一个字段是text, 则这是一个multi-field字段, multi-field字段是不支持nested类型, 只支持keyword类型
             # Type [nested] cannot be used in multi field
             field_data["type"] = "nested"
             field_data["dynamic"] = True
+            type_nested_count += 1
         field_properties = {}
         children = get_all_children(_field_full_name, fields)
         for child in children:
