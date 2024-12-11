@@ -89,7 +89,8 @@ python main.py generate-map -i index-meaning-guessed-field-table-generated-hzxy_
 
 #### IK 分词器健康状态
 
-`health-monitoring/check-analyzer-health.py` 是专门用来挨个节点检查IK分词器的健康状态的脚本.
+* `health-monitoring/check-analyzer-health.py`: 挨个节点检查集群中的IK分词器能否正常执行分词任务
+
 ![](snapshots/ik-health.png)
 
 ## 脚本&功能
@@ -97,4 +98,3 @@ python main.py generate-map -i index-meaning-guessed-field-table-generated-hzxy_
 * `map/generate_field_table.py`: 从map.json解析出字段表格
 * `map/gues-field-meaning.py`: 基于LLM根据字段名推理出其实际意义和用处
 * `health-monitoring/es-health-monitoring`: 实时监控ES集群健康状态
-* `health-monitoring/check-analyzer-health.py`: 挨个节点检查集群中的IK分词器能否正常执行分词任务 
