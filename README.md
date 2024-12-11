@@ -9,7 +9,9 @@
 ```shell
 python main.py task --id "zJ9FtKuNSqi4mycedlvMRg:467516690"
 ```
-结果: 
+
+结果:
+
 ```text
 状态：正在运行.....
 已运行：0:58:30.512872
@@ -30,7 +32,9 @@ python main.py task --id "zJ9FtKuNSqi4mycedlvMRg:467516690"
 ```shell
 python main.py generate-map -i index-meaning-guessed-field-table-generated-hzxy_nation_global_enterprise-fixed.csv --obj2nested
 ```
+
 结果:
+
 ```text
   1 abnormalOperationData                                                            :  abnormalOperationData object:1
   2 abnormalOperationData.totalNum                                                   :                   totalNum long:2
@@ -80,6 +84,13 @@ python main.py generate-map -i index-meaning-guessed-field-table-generated-hzxy_
 724 yearTagArr.keyword                                                               :                   keyword keyword:2
 725 yearTagStr                                                                       :  yearTagStr text:1
 ```
+
+### 健康状态监控
+
+#### IK 分词器健康状态
+
+`health-monitoring/check-analyzer-health.py` 是专门用来挨个节点检查IK分词器的健康状态的脚本.
+![](snapshots/ik-health.png)
 
 ## 脚本&功能
 
