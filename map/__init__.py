@@ -8,6 +8,7 @@
 ======================================="""
 import csv
 import json
+from .generate_field_table import export_field_table
 
 # ES 内部限定, 无法修改
 TYPE_NESTED_MAX_LIMIT = 50

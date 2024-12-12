@@ -7,12 +7,11 @@
 @disc:
 ======================================="""
 import csv
+import datetime
 import json
 import os
 
 from elasticsearch import Elasticsearch
-
-from map.guess_field_meaning import generate_meaning_guessed_field_table
 
 
 def generate_field_table(map_json_fp: str, field_table_fp: str):
@@ -57,15 +56,15 @@ def generate_field_table(map_json_fp: str, field_table_fp: str):
             parse_field_content(firstProperties)
 
 
-def export_field_table(index: str):
+def export_field_table(index: str, export_dir: str):
     EsClient = Elasticsearch(hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
                              http_auth=(os.getenv("SLRC_ES_USERNAME"), os.getenv("SLRC_ES_PASSWORD")),
                              ca_certs=os.getenv("SLRC_ES_CA"), request_timeout=3600)
     resp = EsClient.indices.get_mapping(index=index)
-    map_json_fp = f'index-map-exported-{index}.json'
+    map_json_fp = os.path.join(export_dir, f"index-{index}-map-exported-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.json")
     with open(map_json_fp, 'w', encoding='utf-8') as jsonfile:
         json.dump(resp, jsonfile, ensure_ascii=False, indent=4)
-    field_table_fp = f'index-field-table-generated-{index}.csv'
-    generate_field_table(map_json_fp, field_table_fp)
-    meaning_guessed_field_table_fp = f"index-meaning-guessed-field-table-generated-{index}.csv"
-    generate_meaning_guessed_field_table(field_table_fp, meaning_guessed_field_table_fp)
+
+    csv_out_fp = os.path.join(export_dir, f"index-{index}-field-table-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
+    generate_field_table(map_json_fp, csv_out_fp)
+    return csv_out_fp
