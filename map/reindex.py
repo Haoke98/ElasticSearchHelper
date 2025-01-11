@@ -79,39 +79,69 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
     # 加载字段映射
     field_mapping = load_field_mapping(mapping_file)
 
-    # 准备批量操作
-    def process_docs():
+    # 修改处理文档的方式
+    docs_buffer = []
+    total_processed = 0
+    success, failed = 0, 0
+
+    try:
+        # 获取总文档数
+        total_docs = esCli.count(index=source_index)['count']
+
+        # 使用scan遍历文档
         for doc in scan(esCli, index=source_index, scroll='5m', size=batch_size):
             transformed_doc = transform_doc(doc, field_mapping, strict_mode)
-            yield {
+            docs_buffer.append({
                 '_index': target_index,
                 '_id': doc['_id'],
                 '_source': transformed_doc
-            }
+            })
 
-    # 执行批量重建索引
-    success, failed = 0, 0
+            # 当缓冲区达到batch_size时执行批量操作
+            if len(docs_buffer) >= batch_size:
+                # 执行批量操作
+                success_batch, failed_batch = bulk_operation(esCli, docs_buffer)
+                success += success_batch
+                failed += failed_batch
+                total_processed += len(docs_buffer)
+
+                print(f"\r进度：{total_processed}/{total_docs} "
+                      f"({(total_processed / total_docs * 100):.2f}%) "
+                      f"成功：{success}, 失败：{failed}", end='')
+
+                docs_buffer = []  # 清空缓冲区
+
+        # 处理剩余的文档
+        if docs_buffer:
+            success_batch, failed_batch = bulk_operation(esCli, docs_buffer)
+            success += success_batch
+            failed += failed_batch
+            total_processed += len(docs_buffer)
+
+        print(f"\n重建索引完成: 成功 {success} 条, 失败 {failed} 条")
+
+    except Exception as e:
+        logging.error(f"Exception!:{e}", exc_info=True)
+
+
+def bulk_operation(client, docs):
+    """执行批量操作并返回成功失败数"""
+    success = failed = 0
     try:
-        for ok, item in bulk(esCli, process_docs(), stats_only=False):
+        results = bulk(client, docs, stats_only=False)
+        for ok, item in results:
             if ok:
                 success += 1
             else:
                 failed += 1
                 print(f"处理文档失败: {item}")
-            processed = success + failed
-            print(f"\r已处理：{processed:8d} (成功：{success:7d}, 失败：{failed:5d})", end='')
-        print(f"重建索引完成: 成功 {success} 条, 失败 {failed} 条")
     except BulkIndexError as e:
         logging.error(f"BulkIndexError!")
         print("Errors:")
         max_n = min(len(e.errors), 10)
-        for i in range(1, max_n+1):
-            err = e.errors[i-1]
+        for i in range(1, max_n + 1):
+            err = e.errors[i - 1]
             optDict = err['index']
             print(" " * 10, f"{i:3d} {optDict['status']}", optDict['_id'], optDict['error'])
-        print(" " * 10, "   ", "." * 10)
-        print(" " * 10, e.errors.__len__(), "." * 10)
-        sys.exit(1)
-
-    except Exception as e:
-        logging.error(f"Exception!:{e}", exc_info=True)
+        failed += len(e.errors)
+    return success, failed
