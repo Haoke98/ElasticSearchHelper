@@ -6,6 +6,8 @@ from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk, scan, BulkIndexError
 import os
 
+error_reason_map = {}
+
 
 def load_field_mapping(mapping_file):
     """
@@ -132,13 +134,19 @@ def bulk_operation(client, actions):
         success += _success
         failed += len(errors)
     except BulkIndexError as e:
-        logging.error(f"BulkIndexError!")
-        print("Errors:")
-        max_n = min(len(e.errors), 10)
-        for i in range(1, max_n + 1):
-            err = e.errors[i - 1]
-            optDict = err['index']
-            print(" " * 10, f"{i:3d} {optDict['status']}", optDict['_id'], optDict['error'])
+        print("BulkIndexErrors:")
+        for i, err in enumerate(e.errors, 1):
+            opt_dict = err['index']
+            status = opt_dict['status']
+            err_dict = opt_dict['error']
+            err_type = err_dict['type']
+            err_reason = err_dict['reason']
+            if err_type == 'strict_dynamic_mapping_exception':
+                if not error_reason_map.__contains__(err_reason):
+                    print(" " * 10, f"{i:3d} {status}", opt_dict['_id'], err_dict)
+                    error_reason_map[err_reason] = err
+                pass
+            else:
+                print(" " * 10, f"{i:3d} {status}", opt_dict['_id'], err_dict)
         failed += len(e.errors)
-        sys.exit(1)
     return success, failed
