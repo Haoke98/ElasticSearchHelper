@@ -80,7 +80,7 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
     field_mapping = load_field_mapping(mapping_file)
 
     # 修改处理文档的方式
-    docs_buffer = []
+    action_buffer = []
     total_processed = 0
     success, failed = 0, 0
 
@@ -91,32 +91,32 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
         # 使用scan遍历文档
         for doc in scan(esCli, index=source_index, scroll='5m', size=batch_size):
             transformed_doc = transform_doc(doc, field_mapping, strict_mode)
-            docs_buffer.append({
+            action_buffer.append({
                 '_index': target_index,
                 '_id': doc['_id'],
                 '_source': transformed_doc
             })
 
             # 当缓冲区达到batch_size时执行批量操作
-            if len(docs_buffer) >= batch_size:
+            if len(action_buffer) >= batch_size:
                 # 执行批量操作
-                success_batch, failed_batch = bulk_operation(esCli, docs_buffer)
+                success_batch, failed_batch = bulk_operation(esCli, action_buffer)
                 success += success_batch
                 failed += failed_batch
-                total_processed += len(docs_buffer)
+                total_processed += len(action_buffer)
 
                 print(f"\r进度：{total_processed}/{total_docs} "
                       f"({(total_processed / total_docs * 100):.2f}%) "
                       f"成功：{success}, 失败：{failed}", end='')
 
-                docs_buffer = []  # 清空缓冲区
+                action_buffer = []  # 清空缓冲区
 
         # 处理剩余的文档
-        if docs_buffer:
-            success_batch, failed_batch = bulk_operation(esCli, docs_buffer)
+        if action_buffer:
+            success_batch, failed_batch = bulk_operation(esCli, action_buffer)
             success += success_batch
             failed += failed_batch
-            total_processed += len(docs_buffer)
+            total_processed += len(action_buffer)
 
         print(f"\n重建索引完成: 成功 {success} 条, 失败 {failed} 条")
 
@@ -124,17 +124,13 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
         logging.error(f"Exception!:{e}", exc_info=True)
 
 
-def bulk_operation(client, docs):
+def bulk_operation(client, actions):
     """执行批量操作并返回成功失败数"""
     success = failed = 0
     try:
-        results = bulk(client, docs, stats_only=False)
-        for ok, item in results:
-            if ok:
-                success += 1
-            else:
-                failed += 1
-                print(f"处理文档失败: {item}")
+        _success, errors = bulk(client, actions, stats_only=False)
+        success += _success
+        failed += len(errors)
     except BulkIndexError as e:
         logging.error(f"BulkIndexError!")
         print("Errors:")
@@ -144,4 +140,5 @@ def bulk_operation(client, docs):
             optDict = err['index']
             print(" " * 10, f"{i:3d} {optDict['status']}", optDict['_id'], optDict['error'])
         failed += len(e.errors)
+        sys.exit(1)
     return success, failed
