@@ -70,11 +70,12 @@ def task(id):
 @click.option("-d", "--destination", help="目标索引名称", required=True)
 @click.option("-m", "--mapping", help="字段映射文件路径 (CSV格式)", required=True)
 @click.option("-b", "--batch-size", default=1000, help="每批处理的文档数量", type=int)
-def reindex(source, destination, mapping, batch_size):
+@click.option("--strict", is_flag=True, default=False, help="启用严格模式（只映射在映射表中定义的字段）")
+def reindex(source, destination, mapping, batch_size, strict):
     """
     根据映射关系重建索引
     """
-    custom_reindex(source, destination, mapping, batch_size)
+    custom_reindex(source, destination, mapping, batch_size, strict)
 
 
 if __name__ == '__main__':

@@ -18,25 +18,49 @@ def load_field_mapping(mapping_file):
     return mapping
 
 
-def transform_doc(doc, field_mapping):
+def transform_doc(doc, field_mapping, strict_mode=False):
     """
     根据映射关系转换文档
+    
+    Args:
+        doc: 源文档
+        field_mapping: 字段映射关系
+        strict_mode: 是否启用严格模式
+            - True: 只映射在映射表中定义的字段
+            - False: 未在映射表中定义的字段直接复制
     """
     transformed = {}
     source = doc['_source']
 
     for src_field, value in source.items():
         if src_field in field_mapping:
+            # 字段在映射表中
             target_field = field_mapping[src_field]
             if target_field:  # 只有当目标字段不为空时才进行映射
                 transformed[target_field] = value
+        elif not strict_mode:
+            # 非严格模式下，未映射的字段直接复制
+            target_field = field_mapping.get(src_field, None)
+            if target_field:
+                transformed[target_field] = value
+            else:
+                transformed[src_field] = value
 
     return transformed
 
 
-def custom_reindex(source_index, target_index, mapping_file, batch_size=1000):
+def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, strict_mode=False):
     """
     执行自定义reindex操作
+    
+    Args:
+        source_index: 源索引名称
+        target_index: 目标索引名称
+        mapping_file: 字段映射文件路径
+        batch_size: 批处理大小
+        strict_mode: 是否启用严格模式
+            - True: 只映射在映射表中定义的字段
+            - False: 未在映射表中定义的字段直接复制
     """
     # 获取ES连接
     esCli = Elasticsearch(hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
@@ -49,7 +73,7 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000):
     # 准备批量操作
     def process_docs():
         for doc in scan(esCli, index=source_index, scroll='5m', size=batch_size):
-            transformed_doc = transform_doc(doc, field_mapping)
+            transformed_doc = transform_doc(doc, field_mapping, strict_mode)
             yield {
                 '_index': target_index,
                 '_id': doc['_id'],
