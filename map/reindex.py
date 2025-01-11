@@ -105,8 +105,8 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
         logging.error(f"BulkIndexError!")
         print("Errors:")
         max_n = min(len(e.errors), 10)
-        for i in range(1, max_n):
-            err = e.errors[i]
+        for i in range(1, max_n+1):
+            err = e.errors[i-1]
             optDict = err['index']
             print(" " * 10, f"{i:3d} {optDict['status']}", optDict['_id'], optDict['error'])
         print(" " * 10, "   ", "." * 10)
