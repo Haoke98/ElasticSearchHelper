@@ -23,6 +23,23 @@ def load_field_mapping(mapping_file):
     return mapping
 
 
+def get_nested_value(source, field_path):
+    """
+    获取嵌套字段的值
+    
+    Args:
+        source: 源文档
+        field_path: 字段路径，如 "jobInfoData.TotalNum"
+    """
+    current = source
+    for part in field_path.split('.'):
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            return None
+    return current
+
+
 def transform_doc(doc, field_mapping, strict_mode=False):
     """
     根据映射关系转换文档
@@ -32,31 +49,33 @@ def transform_doc(doc, field_mapping, strict_mode=False):
         field_mapping: 字段映射关系
         strict_mode: 是否启用严格模式
             - True: 只映射在映射表中定义的字段
-            - False: 未在映射表中定义的字段直接复制
+            - False: 未在映射表中定义的字段按规则处理
     """
     transformed = {}
     source = doc['_source']
+
+    # 处理所有源文档中的字段
     for src_field, value in source.items():
-        if src_field in field_mapping:
-            # 字段在映射表中
-            target_field = field_mapping[src_field]
-            if target_field:  # 只有当目标字段不为空时才进行映射
+        # 从映射表中查找目标字段
+        target_field = field_mapping.get(src_field)
+        
+        if '.' in src_field:
+            # 处理嵌套字段
+            value = get_nested_value(source, src_field)
+            if value is not None and target_field:
                 transformed[target_field] = value
-        elif not strict_mode:
-            # 非严格模式下，未映射的字段直接复制
-            target_field = field_mapping.get(src_field, None)
-            if target_field:
-                # print(str(src_field).ljust(32, " "), "==>", target_field)
-                transformed[target_field] = value
-            else:
-                # print(str(src_field).ljust(32, " "), "==>", src_field)
-                transformed[src_field] = value
-            if src_field in ["mainTypeData", "firmTypeStr", "firmTypeData", "mainTypeStr", "firmIndustryDetailInfo"]:
-                print(str(src_field).ljust(32, " "), "==>", target_field)
-                sys.exit(1)
-
+            pass
+        else:
+            # 处理普通字段
+            if target_field is not None:  # 在映射表中找到映射关系
+                if target_field:  # 目标字段不为空，进行映射
+                    transformed[target_field] = value
+                # 如果目标字段为空，则跳过该字段
+            elif not strict_mode:  # 在映射表中找不到映射关系，且是非严格模式
+                transformed[src_field] = value  # 使用原字段名
+    
     # print("*" * 140)
-
+    
     return transformed
 
 
