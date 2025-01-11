@@ -62,7 +62,7 @@ def generate_simplified(input_csv_fp: str, output_json_fp: str, obj2nested: bool
         if (
                 _field_type == 'object' and level <= nestedTypeMinLevel and type_nested_count < TYPE_NESTED_MAX_LIMIT and obj2nested) or _field_type == "nested":
             field_data["type"] = "nested"
-            field_data["dynamic"] = True
+            field_data["dynamic"] = False
             type_nested_count += 1
 
         if _field_type in ['nested', 'object']:
