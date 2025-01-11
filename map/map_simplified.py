@@ -6,10 +6,11 @@
 @Software: PyCharm
 @disc:
 ======================================="""
+import copy
 import csv
 import json
 
-from map.constants import TYPE_NESTED_MAX_LIMIT
+from map.constants import TYPE_NESTED_MAX_LIMIT, DEFAULT_MAP
 
 # 全局变量
 type_nested_count = 0
@@ -94,5 +95,6 @@ def generate_simplified(input_csv_fp: str, output_json_fp: str, obj2nested: bool
             properties[field_full_name] = core(row)
 
     with open(output_json_fp, 'w', encoding='utf-8') as f_out:
-        data = {"mappings": {"properties": properties}}
+        data = copy.copy(DEFAULT_MAP)
+        data['properties'] = properties
         f_out.write(json.dumps(data, indent=4, ensure_ascii=False))

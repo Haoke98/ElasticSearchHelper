@@ -6,10 +6,12 @@
 @Software: PyCharm
 @disc:
 ======================================="""
+import copy
 import csv
 import json
 
-from map.constants import TYPE_NESTED_MAX_LIMIT
+from map.constants import TYPE_NESTED_MAX_LIMIT, DEFAULT_MAP
+
 # 全局变量
 type_nested_count = 0
 i = 0
@@ -64,7 +66,7 @@ def generate_full(input_csv_fp: str, output_json_fp: str, obj2nested: bool = Fal
                 # 如果上一个字段是text, 则这是一个multi-field字段, multi-field字段是不支持nested类型, 只支持keyword类型
                 # Type [nested] cannot be used in multi field
                 field_data["type"] = "nested"
-                field_data["dynamic"] = True
+                field_data["dynamic"] = False
                 type_nested_count += 1
             field_properties = {}
             children = get_all_children(_field_full_name, fields)
@@ -96,5 +98,6 @@ def generate_full(input_csv_fp: str, output_json_fp: str, obj2nested: bool = Fal
             properties[field_full_name] = core(row)
 
     with open(output_json_fp, 'w', encoding='utf-8') as f_out:
-        data = {"mappings": {"properties": properties}}
+        data = copy.copy(DEFAULT_MAP)
+        data['properties'] = properties
         f_out.write(json.dumps(data, indent=4, ensure_ascii=False))
