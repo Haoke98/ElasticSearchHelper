@@ -49,9 +49,9 @@ def transform_doc(doc, field_mapping, strict_mode=False):
             else:
                 # print(str(src_field).ljust(32, " "), "==>", src_field)
                 transformed[src_field] = value
-            if src_field in ["mainTypeData", "firmTypeStr", "firmTypeData", "mainTypeStr", "firmIndustryDetailInfo",
-                             "firmIndustryTopInfo", "firmIndustryFullInfo"]:
+            if src_field in ["mainTypeData", "firmTypeStr", "firmTypeData", "mainTypeStr", "firmIndustryDetailInfo"]:
                 print(str(src_field).ljust(32, " "), "==>", target_field)
+                sys.exit(1)
 
     # print("*" * 140)
 
@@ -98,6 +98,8 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
             else:
                 failed += 1
                 print(f"处理文档失败: {item}")
+            processed = success + failed
+            print(f"\r已处理：{processed:8d} (成功：{success:7d}, 失败：{failed:5d})", end='')
         print(f"重建索引完成: 成功 {success} 条, 失败 {failed} 条")
     except BulkIndexError as e:
         logging.error(f"BulkIndexError!")
@@ -109,6 +111,7 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
             print(" " * 10, f"{i:3d} {optDict['status']}", optDict['_id'], optDict['error'])
         print(" " * 10, "   ", "." * 10)
         print(" " * 10, e.errors.__len__(), "." * 10)
+        sys.exit(1)
 
     except Exception as e:
         logging.error(f"Exception!:{e}", exc_info=True)
