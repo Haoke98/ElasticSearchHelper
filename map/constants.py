@@ -6,5 +6,10 @@
 @Software: PyCharm
 @disc:
 ======================================="""
+import os
+
 # ES 内部限定, 无法修改
 TYPE_NESTED_MAX_LIMIT = 50
+USER_HOME = os.path.expanduser("~")
+APP_HOME_DIR = os.path.join(USER_HOME, "ElasticSearchHelper")
+EXPORT_DIR = os.path.join(APP_HOME_DIR, 'export')

@@ -14,11 +14,15 @@ from dotenv import load_dotenv
 
 from map import generate_meaning_guessed_field_table, generate_full, generate_simplified, \
     export_field_table as _export_field_table
+from map.constants import EXPORT_DIR, APP_HOME_DIR
 from task.task import show
 from map.reindex import custom_reindex
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-EXPORT_DIR = os.path.join(BASE_DIR, 'export')
+if not os.path.exists(APP_HOME_DIR):
+    os.mkdir(APP_HOME_DIR)
+if not os.path.exists(EXPORT_DIR):
+    os.mkdir(EXPORT_DIR)
 
 
 @click.group()
@@ -28,14 +32,16 @@ def main():
 
 @main.command()
 @click.option("-i", "--input", help="input file,[Must be an CSV]", required=True)
-@click.option("-o", "--output", default=f"index-map-generated-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.json",
-              help="input file,[Must be an JSON file path.]")
+@click.option("-o", "--output", help="input file,[Must be an JSON file path.]")
 @click.option("--obj2nested", flag_value=True, default=False)
 @click.option("-f", "--full", help="Generate on full mode.", flag_value=True, default=False)
 def generate_map(input, output, full, obj2nested):
     """
     生成索引mappings
     """
+    if output is None:
+        output = os.path.join(EXPORT_DIR,
+                              f"index-map-generated-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.json")
     if full:
         generate_full(input, output, obj2nested)
     else:
