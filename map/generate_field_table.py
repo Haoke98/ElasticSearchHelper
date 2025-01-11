@@ -57,10 +57,10 @@ def generate_field_table(map_json_fp: str, field_table_fp: str):
 
 
 def export_field_table(index: str, export_dir: str):
-    EsClient = Elasticsearch(hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
+    esCli = Elasticsearch(hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
                              http_auth=(os.getenv("SLRC_ES_USERNAME"), os.getenv("SLRC_ES_PASSWORD")),
                              ca_certs=os.getenv("SLRC_ES_CA"), request_timeout=3600)
-    resp = EsClient.indices.get_mapping(index=index)
+    resp = esCli.indices.get_mapping(index=index)
     map_json_fp = os.path.join(export_dir, f"index-{index}-map-exported-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.json")
     with open(map_json_fp, 'w', encoding='utf-8') as jsonfile:
         json.dump(resp, jsonfile, ensure_ascii=False, indent=4)

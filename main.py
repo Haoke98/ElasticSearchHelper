@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from map import generate_meaning_guessed_field_table, generate_full, generate_simplified, \
     export_field_table as _export_field_table
 from task.task import show
+from map.reindex import custom_reindex
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 EXPORT_DIR = os.path.join(BASE_DIR, 'export')
@@ -62,6 +63,18 @@ def export_field_table(index, export_dir, guess_meaning):
 @click.option("--id", help="Task ID", required=True)
 def task(id):
     show(id)
+
+
+@main.command()
+@click.option("-s", "--source", help="源索引名称", required=True)
+@click.option("-d", "--destination", help="目标索引名称", required=True)
+@click.option("-m", "--mapping", help="字段映射文件路径 (CSV格式)", required=True)
+@click.option("-b", "--batch-size", default=1000, help="每批处理的文档数量", type=int)
+def reindex(source, destination, mapping, batch_size):
+    """
+    根据映射关系重建索引
+    """
+    custom_reindex(source, destination, mapping, batch_size)
 
 
 if __name__ == '__main__':
