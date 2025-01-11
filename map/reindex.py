@@ -1,6 +1,9 @@
 import csv
+import logging
+import sys
+
 from elasticsearch import Elasticsearch
-from elasticsearch.helpers import bulk, scan
+from elasticsearch.helpers import bulk, scan, BulkIndexError
 import os
 
 
@@ -10,7 +13,7 @@ def load_field_mapping(mapping_file):
     """
     mapping = {}
     with open(mapping_file, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
+        reader = csv.DictReader(f, delimiter='|')
         for row in reader:
             source_field = row['source_field']
             target_field = row['target_field']
@@ -31,7 +34,6 @@ def transform_doc(doc, field_mapping, strict_mode=False):
     """
     transformed = {}
     source = doc['_source']
-
     for src_field, value in source.items():
         if src_field in field_mapping:
             # 字段在映射表中
@@ -42,9 +44,16 @@ def transform_doc(doc, field_mapping, strict_mode=False):
             # 非严格模式下，未映射的字段直接复制
             target_field = field_mapping.get(src_field, None)
             if target_field:
+                # print(str(src_field).ljust(32, " "), "==>", target_field)
                 transformed[target_field] = value
             else:
+                # print(str(src_field).ljust(32, " "), "==>", src_field)
                 transformed[src_field] = value
+            if src_field in ["mainTypeData", "firmTypeStr", "firmTypeData", "mainTypeStr", "firmIndustryDetailInfo",
+                             "firmIndustryTopInfo", "firmIndustryFullInfo"]:
+                print(str(src_field).ljust(32, " "), "==>", target_field)
+
+    # print("*" * 140)
 
     return transformed
 
@@ -82,11 +91,24 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
 
     # 执行批量重建索引
     success, failed = 0, 0
-    for ok, item in bulk(esCli, process_docs(), stats_only=False):
-        if ok:
-            success += 1
-        else:
-            failed += 1
-            print(f"处理文档失败: {item}")
+    try:
+        for ok, item in bulk(esCli, process_docs(), stats_only=False):
+            if ok:
+                success += 1
+            else:
+                failed += 1
+                print(f"处理文档失败: {item}")
+        print(f"重建索引完成: 成功 {success} 条, 失败 {failed} 条")
+    except BulkIndexError as e:
+        logging.error(f"BulkIndexError!")
+        print("Errors:")
+        max_n = min(len(e.errors), 10)
+        for i in range(1, max_n):
+            err = e.errors[i]
+            optDict = err['index']
+            print(" " * 10, f"{i:3d} {optDict['status']}", optDict['_id'], optDict['error'])
+        print(" " * 10, "   ", "." * 10)
+        print(" " * 10, e.errors.__len__(), "." * 10)
 
-    print(f"重建索引完成: 成功 {success} 条, 失败 {failed} 条")
+    except Exception as e:
+        logging.error(f"Exception!:{e}", exc_info=True)
