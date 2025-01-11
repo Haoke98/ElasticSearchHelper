@@ -10,13 +10,12 @@ import datetime
 import os
 
 import click
-from dotenv import load_dotenv
 
 from map import generate_meaning_guessed_field_table, generate_full, generate_simplified, \
     export_field_table as _export_field_table
 from map.constants import EXPORT_DIR, APP_HOME_DIR
-from task.task import show
 from map.reindex import custom_reindex
+from task.task import show
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if not os.path.exists(APP_HOME_DIR):
@@ -85,7 +84,6 @@ def reindex(source, destination, mapping, batch_size, strict):
 
 
 if __name__ == '__main__':
-    load_dotenv('/Users/shadikesadamu/.config/.env')
     # show("wKzbDaI7SXqHimMRZBgHxg:84423362")
     # show("zJ9FtKuNSqi4mycedlvMRg:466125529")
     main()
