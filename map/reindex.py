@@ -54,25 +54,26 @@ def transform_doc(doc, field_mapping, strict_mode=False):
     transformed = {}
     source = doc['_source']
 
-    # 处理所有源文档中的字段
-    for src_field, value in source.items():
-        # 从映射表中查找目标字段
-        target_field = field_mapping.get(src_field)
-        
+    # 首先处理映射表中的字段
+    for src_field, target_field in field_mapping.items():
         if '.' in src_field:
             # 处理嵌套字段
             value = get_nested_value(source, src_field)
             if value is not None and target_field:
                 transformed[target_field] = value
-            pass
+                pass
         else:
             # 处理普通字段
-            if target_field is not None:  # 在映射表中找到映射关系
-                if target_field:  # 目标字段不为空，进行映射
-                    transformed[target_field] = value
-                # 如果目标字段为空，则跳过该字段
-            elif not strict_mode:  # 在映射表中找不到映射关系，且是非严格模式
-                transformed[src_field] = value  # 使用原字段名
+            if src_field in source and target_field:
+                transformed[target_field] = source[src_field]
+
+    # 非严格模式下，处理未映射的字段
+    if not strict_mode:
+        for src_field, value in source.items():
+            # 如果字段不在映射表中，使用原字段名
+            if src_field not in field_mapping:
+                transformed[src_field] = value
+
     
     # print("*" * 140)
     
