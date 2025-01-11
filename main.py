@@ -26,7 +26,7 @@ def main():
 
 
 @main.command()
-@click.option("-i", "--input", help="input file,[Must be an CSV]")
+@click.option("-i", "--input", help="input file,[Must be an CSV]", required=True)
 @click.option("-o", "--output", default=f"index-map-generated-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.json",
               help="input file,[Must be an JSON file path.]")
 @click.option("--obj2nested", flag_value=True, default=False)
@@ -59,7 +59,7 @@ def export_field_table(index, export_dir, guess_meaning):
 
 
 @main.command()
-@click.option("--id", help="Task ID")
+@click.option("--id", help="Task ID", required=True)
 def task(id):
     show(id)
 
