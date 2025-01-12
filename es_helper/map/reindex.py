@@ -93,6 +93,31 @@ def delete_value_by_path(obj, path):
         delete_value_by_path(obj, '.'.join(parts[:-1]))
 
 
+def get_parent_field(field_path):
+    """
+    获取字段的父级字段
+    
+    Args:
+        field_path: 字段路径，如 "jobInfoData.dataList.entName"
+    Returns:
+        父级字段路径，如 "jobInfoData.dataList"
+    """
+    parts = field_path.split('.')
+    return '.'.join(parts[:-1])
+
+
+def get_field_name(field_path):
+    """
+    获取字段名称
+    
+    Args:
+        field_path: 字段路径，如 "jobInfoData.dataList.entName"
+    Returns:
+        字段名称，如 "entName"
+    """
+    return field_path.split('.')[-1]
+
+
 def transform_doc(doc, field_mapping, strict_mode=False):
     """
     根据映射关系转换文档
@@ -101,30 +126,60 @@ def transform_doc(doc, field_mapping, strict_mode=False):
         doc: 源文档
         field_mapping: 字段映射关系
         strict_mode: 是否启用严格模式
-            - True: 只映射在映射表中定义的字段
-            - False: 未在映射表中定义的字段按规则处理
     """
     # 克隆源文档
     source = doc['_source'].copy()
     transformed = {} if strict_mode else source.copy()
     
+    # 收集数组映射信息
+    array_mappings = {}  # 存储数组相关的映射信息
+    field_excludes = {}  # 存储每个数组需要排除的字段
+    
+    # 首先收集所有映射信息
+    for src_field, target_field in field_mapping.items():
+        parts = src_field.split('.')
+        if len(parts) > 2 and parts[-2] == 'dataList':
+            # 处理数组元素的字段映射
+            array_path = '.'.join(parts[:-1])  # 如: jobInfoData.dataList
+            field_name = parts[-1]  # 如: entName
+            
+            if array_path not in field_excludes:
+                field_excludes[array_path] = set()
+            
+            if not target_field:  # 如果目标字段为空，加入排除列表
+                field_excludes[array_path].add(field_name)
+        elif parts[-1] == 'dataList':
+            # 记录数组本身的映射
+            array_mappings[src_field] = target_field
+    
     # 按照映射表重构文档
     for src_field, target_field in field_mapping.items():
-        if not target_field and src_field in transformed:  # 如果目标字段为空，跳过
+        if not target_field:  # 如果目标字段为空，删除该字段
             delete_value_by_path(transformed, src_field)
             continue
             
         # 获取源字段的值
         value = get_value_by_path(source, src_field)
         if value is not None:
+            if src_field in array_mappings:
+                # 处理数组字段
+                if isinstance(value, list):
+                    # 过滤数组中每个对象的字段
+                    filtered_value = []
+                    exclude_fields = field_excludes.get(src_field, set())
+                    for item in value:
+                        if isinstance(item, dict):
+                            filtered_item = {k: v for k, v in item.items() 
+                                          if k not in exclude_fields}
+                            if filtered_item:  # 只有当过滤后的对象非空时才添加
+                                filtered_value.append(filtered_item)
+                    value = filtered_value
+            
             # 设置目标字段的值
             set_value_by_path(transformed, target_field, value)
             # 删除原始字段
             delete_value_by_path(transformed, src_field)
-            
-            # 如果是严格模式，删除未映射的原字段
-            if strict_mode and src_field in transformed:
-                del transformed[src_field]
+    
     # 对transformed的key进行排序
     transformed = dict(sorted(transformed.items()))
     return transformed

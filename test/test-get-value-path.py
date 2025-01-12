@@ -3,7 +3,7 @@ import os
 
 from elasticsearch import Elasticsearch
 
-from map.reindex import transform_doc, load_field_mapping, bulk_operation
+from es_helper.map.reindex import load_field_mapping, transform_doc, bulk_operation
 
 if __name__ == '__main__':
     # 获取源字段的值
