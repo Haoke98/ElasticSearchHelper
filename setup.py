@@ -1,14 +1,15 @@
 from setuptools import setup, find_packages
+from version import __version__, __author__, __email__, __url__
 
 setup(
     name="ES-Helper",
-    version="0.1.0",
-    author='Sadam·Sadik',
-    author_email='Haoke98@outlook.com',
+    version=__version__,
+    author=__author__,
+    author_email=__email__,
     description='一个用于ElasticSearch运维的命令行工具集',
     long_description=open('README.md', 'r', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
-    url='https://github.com/Haoke98/ElasticSearchHelper',
+    url=__url__,
     packages=find_packages(),
     include_package_data=True,
     install_requires=[

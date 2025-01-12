@@ -16,13 +16,13 @@ from map import generate_meaning_guessed_field_table, generate_full, generate_si
 from map.constants import EXPORT_DIR, APP_HOME_DIR
 from map.reindex import custom_reindex
 from task.task import show
+from version import __version__, __author__, __email__, __url__
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if not os.path.exists(APP_HOME_DIR):
     os.mkdir(APP_HOME_DIR)
 if not os.path.exists(EXPORT_DIR):
     os.mkdir(EXPORT_DIR)
-
 
 @click.group()
 def main():
@@ -81,6 +81,15 @@ def reindex(source, destination, mapping, batch_size, strict):
     根据映射关系重建索引
     """
     custom_reindex(source, destination, mapping, batch_size, strict)
+
+
+@main.command()
+def version():
+    """显示版本信息"""
+    click.echo(f"ES-Helper v{__version__}")
+    click.echo(f"author: {__author__}")
+    click.echo(f"author email: {__email__}")
+    click.echo(f"project url: {__url__}")
 
 
 if __name__ == '__main__':
