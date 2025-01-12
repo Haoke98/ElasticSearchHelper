@@ -4,7 +4,7 @@
 
 ## 安装
 
-### 从PyPI安装（推荐）
+### 从PyPI安装（不推荐：还没正式发行）
 ```bash
 pip install eshelper
 ```
