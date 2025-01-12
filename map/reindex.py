@@ -23,21 +23,43 @@ def load_field_mapping(mapping_file):
     return mapping
 
 
-def get_nested_value(source, field_path):
+def get_value_by_path(obj, path):
     """
-    获取嵌套字段的值
+    根据路径获取JSON对象中的值
     
     Args:
-        source: 源文档
-        field_path: 字段路径，如 "jobInfoData.TotalNum"
+        obj: JSON对象
+        path: 字段路径，如 "jobInfoData.TotalNum"
     """
-    current = source
-    for part in field_path.split('.'):
+    current = obj
+    for part in path.split('.'):
         if isinstance(current, dict) and part in current:
             current = current[part]
         else:
             return None
     return current
+
+
+def set_value_by_path(obj, path, value):
+    """
+    根据路径设置JSON对象中的值
+    
+    Args:
+        obj: JSON对象
+        path: 字段路径，如 "jobInfoDataTotalNum"
+        value: 要设置的值
+    """
+    parts = path.split('.')
+    current = obj
+    
+    # 遍历路径的每一部分，除了最后一个
+    for part in parts[:-1]:
+        if part not in current:
+            current[part] = {}
+        current = current[part]
+    
+    # 设置最后一个字段的值
+    current[parts[-1]] = value
 
 
 def transform_doc(doc, field_mapping, strict_mode=False):
@@ -51,31 +73,25 @@ def transform_doc(doc, field_mapping, strict_mode=False):
             - True: 只映射在映射表中定义的字段
             - False: 未在映射表中定义的字段按规则处理
     """
-    transformed = {}
-    source = doc['_source']
-
-    # 首先处理映射表中的字段
-    for src_field, target_field in field_mapping.items():
-        if '.' in src_field:
-            # 处理嵌套字段
-            value = get_nested_value(source, src_field)
-            if value is not None and target_field:
-                transformed[target_field] = value
-                pass
-        else:
-            # 处理普通字段
-            if src_field in source and target_field:
-                transformed[target_field] = source[src_field]
-
-    # 非严格模式下，处理未映射的字段
-    if not strict_mode:
-        for src_field, value in source.items():
-            # 如果字段不在映射表中，使用原字段名
-            if src_field not in field_mapping:
-                transformed[src_field] = value
-
+    # 克隆源文档
+    source = doc['_source'].copy()
+    transformed = {} if strict_mode else source.copy()
     
-    # print("*" * 140)
+    # 按照映射表重构文档
+    for src_field, target_field in field_mapping.items():
+        if not target_field and src_field in transformed:  # 如果目标字段为空，跳过
+            del transformed[src_field]
+            continue
+            
+        # 获取源字段的值
+        value = get_value_by_path(source, src_field)
+        if value is not None:
+            # 设置目标字段的值
+            set_value_by_path(transformed, target_field, value)
+            
+            # 如果是严格模式，删除未映射的原字段
+            if strict_mode and src_field in transformed:
+                del transformed[src_field]
     
     return transformed
 
@@ -154,7 +170,6 @@ def bulk_operation(client, actions):
         success += _success
         failed += len(errors)
     except BulkIndexError as e:
-        print("BulkIndexErrors:")
         for i, err in enumerate(e.errors, 1):
             opt_dict = err['index']
             status = opt_dict['status']
@@ -163,7 +178,8 @@ def bulk_operation(client, actions):
             err_reason = err_dict['reason']
             if err_type == 'strict_dynamic_mapping_exception':
                 if not error_reason_map.__contains__(err_reason):
-                    print(" " * 10, f"{i:3d} {status}", opt_dict['_id'], err_dict)
+                    print("\r", f"{i:3d} {status}", opt_dict['_id'], err_dict)
+                    print()
                     error_reason_map[err_reason] = err
                 pass
             else:
