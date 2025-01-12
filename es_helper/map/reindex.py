@@ -1,10 +1,9 @@
 import csv
 import logging
-import sys
+import os
 
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk, scan, BulkIndexError
-import os
 
 error_reason_map = {}
 

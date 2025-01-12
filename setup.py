@@ -1,5 +1,5 @@
 from setuptools import setup, find_packages
-from version import __version__, __author__, __email__, __url__
+from es_helper.version import __version__, __author__, __email__, __url__
 
 setup(
     name="ES-Helper",
@@ -20,7 +20,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "es-helper=main:main",
+            "es-helper=es_helper.main:main",
         ],
     },
     classifiers=[

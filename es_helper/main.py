@@ -11,18 +11,20 @@ import os
 
 import click
 
-from map import generate_meaning_guessed_field_table, generate_full, generate_simplified, \
+from es_helper.constants import APP_HOME_DIR, EXPORT_DIR
+from es_helper.map import generate_full, generate_simplified, generate_meaning_guessed_field_table, \
     export_field_table as _export_field_table
-from map.constants import EXPORT_DIR, APP_HOME_DIR
-from map.reindex import custom_reindex
-from task.task import show
-from version import __version__, __author__, __email__, __url__
+
+from es_helper.map.reindex import custom_reindex
+from es_helper.task import task
+from es_helper import version
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if not os.path.exists(APP_HOME_DIR):
     os.mkdir(APP_HOME_DIR)
 if not os.path.exists(EXPORT_DIR):
     os.mkdir(EXPORT_DIR)
+
 
 @click.group()
 def main():
@@ -67,7 +69,7 @@ def export_field_table(index, export_dir, guess_meaning):
 @main.command()
 @click.option("--id", help="Task ID", required=True)
 def task(id):
-    show(id)
+    task.show(id)
 
 
 @main.command()
@@ -86,10 +88,10 @@ def reindex(source, destination, mapping, batch_size, strict):
 @main.command()
 def version():
     """显示版本信息"""
-    click.echo(f"ES-Helper v{__version__}")
-    click.echo(f"author: {__author__}")
-    click.echo(f"author email: {__email__}")
-    click.echo(f"project url: {__url__}")
+    click.echo(f"ES-Helper v{version.__version__}")
+    click.echo(f"author: {version.__author__}")
+    click.echo(f"author email: {version.__email__}")
+    click.echo(f"project url: {version.__url__}")
 
 
 if __name__ == '__main__':
