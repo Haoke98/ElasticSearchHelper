@@ -4,7 +4,7 @@ import pprint
 
 from elasticsearch import Elasticsearch
 
-from map.reindex import get_value_by_path, set_value_by_path
+from map.reindex import get_value_by_path, set_value_by_path, transform_doc
 
 if __name__ == '__main__':
     # 获取源字段的值
@@ -17,16 +17,8 @@ if __name__ == '__main__':
                           ca_certs=os.getenv("SLRC_ES_CA"), request_timeout=3600)
     resp = esCli.get(index=_index, id=_id)
     print(json.dumps(resp.body, indent=4, ensure_ascii=False))
-    source = resp["_source"]
 
-    maps = {
+    field_maps = {
         "jobInfoData.totalNum":"jobInfoDataTotalNum"
     }
-    for src_field,target_field in maps.items():
-        transformed = {} if strict_mode else source.copy()
-        value = get_value_by_path(source, src_field)
-        print(value)
-        # 设置目标字段的值
-        set_value_by_path(transformed, target_field, value)
-        print(transformed)
-        pass
+    transform_doc(doc=resp,field_mapping=field_maps,strict_mode=strict_mode)

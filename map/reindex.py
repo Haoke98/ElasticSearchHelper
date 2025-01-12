@@ -62,6 +62,33 @@ def set_value_by_path(obj, path, value):
     current[parts[-1]] = value
 
 
+def delete_value_by_path(obj, path):
+    """
+    根据路径删除JSON对象中的值
+    
+    Args:
+        obj: JSON对象
+        path: 字段路径，如 "jobInfoData.TotalNum"
+    """
+    parts = path.split('.')
+    current = obj
+    
+    # 遍历到倒数第二层
+    for part in parts[:-1]:
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            return
+    
+    # 删除最后一个字段
+    if isinstance(current, dict) and parts[-1] in current:
+        del current[parts[-1]]
+        
+    # 如果删除后父对象为空，也删除父对象
+    if len(parts) > 1 and not current:
+        delete_value_by_path(obj, '.'.join(parts[:-1]))
+
+
 def transform_doc(doc, field_mapping, strict_mode=False):
     """
     根据映射关系转换文档
@@ -80,7 +107,7 @@ def transform_doc(doc, field_mapping, strict_mode=False):
     # 按照映射表重构文档
     for src_field, target_field in field_mapping.items():
         if not target_field and src_field in transformed:  # 如果目标字段为空，跳过
-            del transformed[src_field]
+            delete_value_by_path(transformed, src_field)
             continue
             
         # 获取源字段的值
@@ -88,6 +115,8 @@ def transform_doc(doc, field_mapping, strict_mode=False):
         if value is not None:
             # 设置目标字段的值
             set_value_by_path(transformed, target_field, value)
+            # 删除原始字段
+            delete_value_by_path(transformed, src_field)
             
             # 如果是严格模式，删除未映射的原字段
             if strict_mode and src_field in transformed:
