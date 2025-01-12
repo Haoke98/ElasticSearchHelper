@@ -46,12 +46,17 @@ def set_value_by_path(obj, path, value):
     
     Args:
         obj: JSON对象
-        path: 字段路径，如 "jobInfoDataTotalNum"
+        path: 字段路径，如 "jobInfoDataTotalNum" 或 "jobInfoData"
         value: 要设置的值
     """
     parts = path.split('.')
     current = obj
     
+    # 如果是单层路径，直接设置
+    if len(parts) == 1:
+        obj[path] = value
+        return
+        
     # 遍历路径的每一部分，除了最后一个
     for part in parts[:-1]:
         if part not in current:
@@ -121,7 +126,8 @@ def transform_doc(doc, field_mapping, strict_mode=False):
             # 如果是严格模式，删除未映射的原字段
             if strict_mode and src_field in transformed:
                 del transformed[src_field]
-    
+    # 对transformed的key进行排序
+    transformed = dict(sorted(transformed.items()))
     return transformed
 
 
