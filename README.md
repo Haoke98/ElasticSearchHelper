@@ -18,8 +18,9 @@ pip install -e .
 
 ## 环境配置
 
-在使用之前，需要配置ElasticSearch连接信息，以下环境变量：
+在使用之前，需要配置ElasticSearch连接信息。你可以通过以下两种方式之一配置环境变量：
 
+1. 在环境变量文件(.env)中配置：
 ```bash
 SLRC_ES_PROTOCOL=https
 SLRC_ES_HOST=your-es-host:9200
@@ -28,9 +29,20 @@ SLRC_ES_PASSWORD=your-password
 SLRC_ES_CA=/path/to/ca.crt  # 如果使用https
 ```
 
+2. 使用 `-e` 选项指定环境变量文件：
+```bash
+es-helper -e /path/to/your.env <command>
+```
+
+> 注意：如果不指定环境变量文件，程序会自动寻找当前目录下的 `.env` 文件。
+
 ## 命令行使用
 
 安装后可以使用`es-helper`命令，支持以下功能：
+
+### 全局选项
+
+- `-e, --env-file`: 指定环境变量文件路径，可用于所有子命令
 
 ### 1. 查看任务进度
 

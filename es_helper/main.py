@@ -10,6 +10,7 @@ import datetime
 import os
 
 import click
+from dotenv import load_dotenv
 
 from es_helper.constants import APP_HOME_DIR, EXPORT_DIR
 from es_helper.map import generate_full, generate_simplified, generate_meaning_guessed_field_table, \
@@ -26,8 +27,21 @@ if not os.path.exists(EXPORT_DIR):
     os.mkdir(EXPORT_DIR)
 
 
+def load_env_file(ctx, param, value):
+    """加载环境变量文件"""
+    if value:
+        load_dotenv(value)
+    else:
+        load_dotenv()  # 默认加载当前目录的 .env 文件
+
+
 @click.group()
-def main():
+@click.option('-e', '--env-file', 
+              type=click.Path(exists=True, file_okay=True, dir_okay=False),
+              help='指定环境变量文件路径',
+              callback=load_env_file)
+def main(env_file):
+    """ES-Helper 命令行工具"""
     pass
 
 
