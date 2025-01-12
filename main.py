@@ -84,7 +84,4 @@ def reindex(source, destination, mapping, batch_size, strict):
 
 
 if __name__ == '__main__':
-    # show("wKzbDaI7SXqHimMRZBgHxg:84423362")
-    # show("zJ9FtKuNSqi4mycedlvMRg:466125529")
     main()
-    # export_field_table('hzxy_nation_global_enterprise')

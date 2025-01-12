@@ -1,100 +1,94 @@
 # ElasticSearchHelper
 
-## 使用&教程
+一个用于ElasticSearch运维的命令行工具集。
 
-### Task
+## 安装
 
-按百分比展示任务的进度,并估算出预计需要时间和预计完成时间.
-
-```shell
-python main.py task --id "zJ9FtKuNSqi4mycedlvMRg:467516690"
+### 从PyPI安装（推荐）
+```bash
+pip install eshelper
 ```
 
-结果:
+### 从源码安装
+```bash
+git clone https://github.com/Haoke98/ElasticSearchHelper.git
+cd ElasticSearchHelper
+pip install -e .
+```
 
+## 环境配置
+
+在使用之前，需要配置ElasticSearch连接信息，以下环境变量：
+
+```bash
+SLRC_ES_PROTOCOL=https
+SLRC_ES_HOST=your-es-host:9200
+SLRC_ES_USERNAME=your-username
+SLRC_ES_PASSWORD=your-password
+SLRC_ES_CA=/path/to/ca.crt  # 如果使用https
+```
+
+## 命令行使用
+
+安装后可以使用`es-helper`命令，支持以下功能：
+
+### 1. 查看任务进度
+
+```bash
+es-helper task --id "task-id"
+```
+
+输出示例：
 ```text
 状态：正在运行.....
 已运行：0:58:30.512872
-进度：23.071283420651266 %
-速率：
-      2.438675005900036e-06/纳秒(nanosecond)
-      2.438675005900036/毫秒(millisecond)
-      73.16025017700107/秒(second)
-      4389.615010620065/分(minute)
-预估需要：3:15:05.428124
-预估完成于：2024-12-09 22:38:21.975248
+进度：23.07%
+速率：73.16/秒
+预估完成于：2024-12-09 22:38:21
 ```
 
-### Map
+### 2. 生成索引映射
 
-从CSV倒推索引map
+从CSV文件生成ES索引mapping：
 
-```shell
-python main.py generate-map -i index-meaning-guessed-field-table-generated-hzxy_nation_global_enterprise-fixed.csv --obj2nested
+```bash
+es-helper generate-map -i fields.csv --obj2nested
 ```
 
-结果:
+支持的选项：
+- `-i, --input`: 输入CSV文件路径（必需）
+- `-o, --output`: 输出JSON文件路径（可选）
+- `--obj2nested`: 将object类型转换为nested类型
+- `-f, --full`: 生成完整模式的mapping
 
-```text
-  1 abnormalOperationData                                                            :  abnormalOperationData object:1
-  2 abnormalOperationData.totalNum                                                   :                   totalNum long:2
-  3 administrativeLicensingData                                                      :  administrativeLicensingData object:1
-  4 administrativeLicensingData.dataList                                             :                   dataList object:2
-  5 administrativeLicensingData.dataList.fileName                                    :                                           fileName text:3
-  6 administrativeLicensingData.dataList.fileName.keyword                            :                                                                   keyword keyword:4
-  7 administrativeLicensingData.dataList.fileNo                                      :                                           fileNo text:3
-  8 administrativeLicensingData.dataList.fileNo.keyword                              :                                                                   keyword keyword:4
-  9 administrativeLicensingData.dataList.firmName                                    :                                           firmName text:3
- 10 administrativeLicensingData.dataList.firmName.keyword                            :                                                                   keyword keyword:4
- 11 administrativeLicensingData.dataList.licensingContent                            :                                           licensingContent text:3
- 12 administrativeLicensingData.dataList.licensingContent.keyword                    :                                                                   keyword keyword:4
- 13 administrativeLicensingData.dataList.licensingUnit                               :                                           licensingUnit text:3
- 14 administrativeLicensingData.dataList.licensingUnit.keyword                       :                                                                   keyword keyword:4
- 15 administrativeLicensingData.dataList.valFrom                                     :                                           valFrom date:3
- 16 administrativeLicensingData.dataList.valTo                                       :                                           valTo date:3
- 17 administrativeLicensingData.totalNum                                             :                   totalNum long:2
-·······························································································································································································
-670 tagGazelle.checkYear                                                             :                   checkYear text:2
-671 tagGazelle.checkYear.keyword                                                     :                                           keyword keyword:3
-672 tagHightech                                                                      :  tagHightech object:1
-673 tagHightech.checkYear                                                            :                   checkYear text:2
-674 tagHightech.checkYear.keyword                                                    :                                           keyword keyword:3
-·······························································································································································································
-703 taxCreditRatingData                                                              :  taxCreditRatingData object:1
-704 taxCreditRatingData.dataList                                                     :                   dataList object:2
-705 taxCreditRatingData.dataList.firmName                                            :                                           firmName text:3
-706 taxCreditRatingData.dataList.firmName.keyword                                    :                                                                   keyword keyword:4
-707 taxCreditRatingData.dataList.ratingInfo                                          :                                           ratingInfo text:3
-708 taxCreditRatingData.dataList.ratingInfo.keyword                                  :                                                                   keyword keyword:4
-709 taxCreditRatingData.dataList.yearInfo                                            :                                           yearInfo text:3
-710 taxCreditRatingData.dataList.yearInfo.keyword                                    :                                                                   keyword keyword:4
-711 taxCreditRatingData.totalNum                                                     :                   totalNum long:2
-712 updateDateInfo                                                                   :  updateDateInfo text:1
-713 updateDateInfo.keyword                                                           :                   keyword keyword:2
-714 wechatListData                                                                   :  wechatListData object:1
-715 wechatListData.wechatAccount                                                     :                   wechatAccount text:2
-716 wechatListData.wechatAccount.keyword                                             :                                           keyword keyword:3
-717 wechatListData.wechatDescription                                                 :                   wechatDescription text:2
-718 wechatListData.wechatDescription.keyword                                         :                                           keyword keyword:3
-719 wechatListData.wechatImageUrl                                                    :                   wechatImageUrl text:2
-720 wechatListData.wechatImageUrl.keyword                                            :                                           keyword keyword:3
-721 wechatListData.wechatName                                                        :                   wechatName text:2
-722 wechatListData.wechatName.keyword                                                :                                           keyword keyword:3
-723 yearTagArr                                                                       :  yearTagArr text:1
-724 yearTagArr.keyword                                                               :                   keyword keyword:2
-725 yearTagStr                                                                       :  yearTagStr text:1
+### 3. 导出字段表
+
+从ES索引导出字段列表：
+
+```bash
+es-helper export-field-table -i index-name -gsm
 ```
 
-### 健康状态监控
+选项说明：
+- `-i, --index`: ES索引名称
+- `-d, --export_dir`: 导出目录
+- `-gsm, --guess-meaning`: 使用LLM推测字段含义
 
-#### IK 分词器健康状态
+### 4. 重建索引
 
-* `health-monitoring/check-analyzer-health.py`: 挨个节点检查集群中的IK分词器能否正常执行分词任务
+根据映射关系重建索引：
 
-![](snapshots/ik-health.png)
+```bash
+es-helper reindex -s source-index -d dest-index -m mapping.csv
+```
 
-## 脚本&功能
+参数说明：
+- `-s, --source`: 源索引名称
+- `-d, --destination`: 目标索引名称
+- `-m, --mapping`: 字段映射文件（CSV格式）
+- `-b, --batch-size`: 批处理大小（默认1000）
+- `--strict`: 严格模式，只映射在映射表中定义的字段
 
-* `map/generate_field_table.py`: 从map.json解析出字段表格
-* `map/gues-field-meaning.py`: 基于LLM根据字段名推理出其实际意义和用处
-* `health-monitoring/es-health-monitoring`: 实时监控ES集群健康状态
+## 许可证
+
+Apache License 2.0
