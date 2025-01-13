@@ -210,15 +210,15 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
             # 使用scroll API快速定位
             query = {
                 "sort": [{"_doc": "asc"}],  # 使用 _doc 替代 _id 进行排序
-                "_source": False  # 不需要获取source内容
+                "_source": False,  # 不需要获取source内容
+                "size": 10000  # 使用最大允许的size以加快定位速度
             }
             
             # 初始化scroll，使用更长的scroll时间
             page = esCli.search(
                 index=source_index,
                 body=query,
-                scroll='30m',  # 增加scroll时间到30分钟
-                size=10000  # 使用最大允许的size以加快定位速度
+                scroll='30m'  # 增加scroll时间到30分钟
             )
             
             scroll_id = page['_scroll_id']
@@ -259,15 +259,15 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
             query = {
                 "query": {"match_all": {}},
                 "sort": [{"_doc": "asc"}],  # 使用 _doc 替代 _id
-                "search_after": last_sort
+                "search_after": last_sort,
+                "size": batch_size  # 把size参数放到query body里
             }
             
             # 使用search_after进行查询
             while True:
                 response = esCli.search(
                     index=source_index,
-                    body=query,
-                    size=batch_size
+                    body=query
                 )
                 
                 hits = response['hits']['hits']
