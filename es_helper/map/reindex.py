@@ -188,14 +188,6 @@ def transform_doc(doc, field_mapping, strict_mode=False):
 def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, strict_mode=False, skip=0):
     """
     执行自定义reindex操作
-    
-    Args:
-        source_index: 源索引名称
-        target_index: 目标索引名称
-        mapping_file: 字段映射文件路径
-        batch_size: 批处理大小
-        strict_mode: 是否启用严格模式
-        skip: 跳过前n个文档
     """
     # 获取ES连接
     esCli = Elasticsearch(hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
@@ -205,50 +197,126 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
     # 加载字段映射
     field_mapping = load_field_mapping(mapping_file)
 
-    # 修改处理文档的方式
     action_buffer = []
-    total_processed = 0  # 从0开始计数总处理数
-    success, failed = skip, 0  # 成功数从skip开始计数
+    total_processed = skip
+    success, failed = skip, 0
 
     try:
         # 获取总文档数
         total_docs = esCli.count(index=source_index)['count']
         
         if skip > 0:
-            print(f"正在跳过前 {skip} 个文档...")
-
-        # 使用scan遍历文档
-        for doc in scan(esCli, index=source_index, scroll='5m', size=batch_size):
-            total_processed += 1
+            print(f"正在定位到第 {skip} 个文档...")
+            # 使用scroll API快速定位
+            query = {
+                "sort": [{"_doc": "asc"}],  # 使用 _doc 替代 _id 进行排序
+                "_source": False  # 不需要获取source内容
+            }
             
-            if total_processed <= skip:  # 跳过前skip个文档
-                if total_processed % 10000 == 0:  # 每跳过10000个文档显示一次进度
-                    print(f"\r跳过进度：{total_processed}/{skip} "
-                          f"({(total_processed / skip * 100):.2f}%)", end='')
-                continue
+            # 初始化scroll，使用更长的scroll时间
+            page = esCli.search(
+                index=source_index,
+                body=query,
+                scroll='30m',  # 增加scroll时间到30分钟
+                size=10000  # 使用最大允许的size以加快定位速度
+            )
             
-            if total_processed == skip + 1:
-                print("\n开始处理文档...")
+            scroll_id = page['_scroll_id']
+            skipped = 0
+            last_sort = None
+            
+            try:
+                # 快速跳过直到接近目标位置
+                while skipped + 10000 < skip:
+                    skipped += 10000
+                    print(f"\r已跳过: {skipped}/{skip} ({(skipped/skip*100):.2f}%)", end='')
+                    
+                    # 每次scroll都更新scroll时间
+                    page = esCli.scroll(scroll_id=scroll_id, scroll='30m')
+                    if not page['hits']['hits']:
+                        raise Exception("无法找到足够的文档")
+                    scroll_id = page['_scroll_id']
                 
-            transformed_doc = transform_doc(doc, field_mapping, strict_mode)
-            action_buffer.append({
-                '_index': target_index,
-                '_id': doc['_id'],
-                '_source': transformed_doc
-            })
+                # 处理剩余的跳过量
+                remaining = skip - skipped
+                if remaining > 0:
+                    page = esCli.scroll(scroll_id=scroll_id, scroll='30m')
+                    if not page['hits']['hits']:
+                        raise Exception("无法找到足够的文档")
+                    last_sort = page['hits']['hits'][remaining - 1]['sort']
+                else:
+                    last_sort = page['hits']['hits'][-1]['sort']
+            finally:
+                # 确保清理scroll上下文
+                try:
+                    esCli.clear_scroll(scroll_id=scroll_id)
+                except Exception as e:
+                    logging.warning(f"清理scroll上下文失败: {e}")
+            
+            print(f"\n定位完成，开始处理文档")
+            
+            # 使用search_after继续处理
+            query = {
+                "query": {"match_all": {}},
+                "sort": [{"_doc": "asc"}],  # 使用 _doc 替代 _id
+                "search_after": last_sort
+            }
+            
+            # 使用search_after进行查询
+            while True:
+                response = esCli.search(
+                    index=source_index,
+                    body=query,
+                    size=batch_size
+                )
+                
+                hits = response['hits']['hits']
+                if not hits:
+                    break
+                    
+                # 更新search_after的值
+                query["search_after"] = hits[-1]['sort']
+                
+                for doc in hits:
+                    transformed_doc = transform_doc(doc, field_mapping, strict_mode)
+                    action_buffer.append({
+                        '_index': target_index,
+                        '_id': doc['_id'],
+                        '_source': transformed_doc
+                    })
+                    
+                    if len(action_buffer) >= batch_size:
+                        success_batch, failed_batch = bulk_operation(esCli, action_buffer)
+                        success += success_batch
+                        failed += failed_batch
+                        total_processed += len(action_buffer)
+                        
+                        print(f"\r进度：{total_processed}/{total_docs} "
+                              f"({(total_processed / total_docs * 100):.2f}%) "
+                              f"成功：{success}, 失败：{failed}", end='')
+                        
+                        action_buffer = []
+        else:
+            # 如果不需要跳过，使用普通的scan
+            for doc in scan(esCli, index=source_index, scroll='5m', size=batch_size):
+                transformed_doc = transform_doc(doc, field_mapping, strict_mode)
+                action_buffer.append({
+                    '_index': target_index,
+                    '_id': doc['_id'],
+                    '_source': transformed_doc
+                })
 
-            # 当缓冲区达到batch_size时执行批量操作
-            if len(action_buffer) >= batch_size:
-                # 执行批量操作
-                success_batch, failed_batch = bulk_operation(esCli, action_buffer)
-                success += success_batch
-                failed += failed_batch
-
-                print(f"\r进度：{total_processed}/{total_docs} "
-                      f"({(total_processed / total_docs * 100):.2f}%) "
-                      f"成功：{success}, 失败：{failed}", end='')
-
-                action_buffer = []  # 清空缓冲区
+                if len(action_buffer) >= batch_size:
+                    success_batch, failed_batch = bulk_operation(esCli, action_buffer)
+                    success += success_batch
+                    failed += failed_batch
+                    total_processed += len(action_buffer)
+                    
+                    print(f"\r进度：{total_processed}/{total_docs} "
+                          f"({(total_processed / total_docs * 100):.2f}%) "
+                          f"成功：{success}, 失败：{failed}", end='')
+                    
+                    action_buffer = []
 
         # 处理剩余的文档
         if action_buffer:
