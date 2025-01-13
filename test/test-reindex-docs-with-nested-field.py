@@ -8,7 +8,7 @@ esCli = Elasticsearch(hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("S
                       ca_certs=os.getenv("SLRC_ES_CA"), request_timeout=3600)
 
 
-def test_nested_field(src_index: str, dst_index: str, field_name: str):
+def test_nested_field(src_index: str, dst_index: str, field_name: str, batch_size=1000):
     resp = esCli.search(index=src_index, query={
         "nested": {
             "path": field_name,
@@ -16,7 +16,7 @@ def test_nested_field(src_index: str, dst_index: str, field_name: str):
                 "match_all": {}
             }
         }
-    }, size=1000)
+    }, size=batch_size)
 
     hits = resp["hits"]["hits"]
     total = len(hits)
@@ -38,5 +38,5 @@ def test_nested_field(src_index: str, dst_index: str, field_name: str):
 if __name__ == '__main__':
     field_mapping = load_field_mapping(r"D:\Projects\IndexMap\reindex_v4_to_v5.csv")
     for nested_field_name in ["newsFeelingsData.dataList", "administrativePenaltyData.dataList",
-                              "announcementData.dataList",]:
-        test_nested_field("ent-mdsi-v4", "ent-mdsi-v6", nested_field_name)
+                              "announcementData.dataList", ]:
+        test_nested_field("ent-mdsi-v4", "ent-mdsi-v6", nested_field_name, 5000)
