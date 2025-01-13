@@ -131,7 +131,7 @@ def transform_doc(doc, field_mapping, strict_mode=False):
     source = doc['_source'].copy()
     transformed = {} if strict_mode else source.copy()
     
-    # 收集数组映射信息
+    # 收集映射信息
     array_mappings = {}  # 存储数组相关的映射信息
     array_field_mappings = {}  # 存储数组内部字段的映射信息
     
@@ -140,50 +140,82 @@ def transform_doc(doc, field_mapping, strict_mode=False):
         parts = src_field.split('.')
         if len(parts) > 2 and parts[-2] == 'dataList':
             # 处理数组元素的字段映射
-            array_path = '.'.join(parts[:-1])  # 如: jobInfoData.dataList
-            field_name = parts[-1]  # 如: entName
+            array_path = '.'.join(parts[:-1])  # 如: investmentData.dataList
+            field_name = parts[-1]  # 如: investAmount
             
             if array_path not in array_field_mappings:
                 array_field_mappings[array_path] = {}
             
-            if target_field:
-                # 获取目标字段的最后一部分作为新的字段名
-                target_parts = target_field.split('.')
-                new_field_name = target_parts[-1]
-                array_field_mappings[array_path][field_name] = new_field_name
-            else:
-                array_field_mappings[array_path][field_name] = None
+            array_field_mappings[array_path][field_name] = target_field
                 
         elif parts[-1] == 'dataList':
             # 记录数组本身的映射
             array_mappings[src_field] = target_field
     
-    # 先处理数组内部字段的映射
-    for array_path, field_mappings in array_field_mappings.items():
+    # 处理数组映射
+    for array_path, target_path in array_mappings.items():
         value = get_value_by_path(source, array_path)
         if isinstance(value, list):
+            # 创建新的数组来存储转换后的项
+            transformed_array = []
+            
+            # 获取这个数组的字段映射
+            field_mappings = array_field_mappings.get(array_path, {})
+            
+            # 处理数组中的每个项
             for item in value:
                 if isinstance(item, dict):
-                    # 重命名或删除字段
-                    for old_field, new_field in field_mappings.items():
+                    # 创建新的对象来存储转换后的字段
+                    transformed_item = {}
+                    
+                    # 处理每个字段
+                    for old_field, target_field in field_mappings.items():
                         if old_field in item:
-                            if new_field:  # 如果有新字段名，则重命名
-                                item[new_field] = item[old_field]
-                            del item[old_field]  # 删除旧字段
-    
-    # 按照映射表重构文档
-    for src_field, target_field in field_mapping.items():
-        if not target_field:  # 如果目标字段为空，删除该字段
-            delete_value_by_path(transformed, src_field)
-            continue
+                            if target_field:  # 如果有目标字段，则映射到新位置
+                                # 从目标路径中提取父路径和字段名
+                                target_parts = target_field.split('.')
+                                parent_path = '.'.join(target_parts[:-1])
+                                field_name = target_parts[-1]
+                                
+                                # 确保父路径存在
+                                if parent_path not in transformed:
+                                    transformed[parent_path] = {}
+                                
+                                # 设置字段值
+                                transformed[parent_path][field_name] = item[old_field]
+                    
+                    # 只保留未映射的字段
+                    for field, value in item.items():
+                        if field not in field_mappings:
+                            transformed_item[field] = value
+                            
+                    # 只有当转换后的项非空时才添加到数组中
+                    if transformed_item:
+                        transformed_array.append(transformed_item)
             
-        # 获取源字段的值
-        value = get_value_by_path(source, src_field)
-        if value is not None:
-            # 设置目标字段的值
-            set_value_by_path(transformed, target_field, value)
-            # 删除原始字段
-            delete_value_by_path(transformed, src_field)
+            # 设置转换后的数组
+            if transformed_array:
+                set_value_by_path(transformed, target_path, transformed_array)
+            
+            # 删除原始数组
+            delete_value_by_path(transformed, array_path)
+    
+    # 处理非数组字段的映射
+    for src_field, target_field in field_mapping.items():
+        parts = src_field.split('.')
+        # 跳过数组相关的映射，因为已经处理过了
+        if 'dataList' not in parts:
+            if not target_field:  # 如果目标字段为空，删除该字段
+                delete_value_by_path(transformed, src_field)
+                continue
+                
+            # 获取源字段的值
+            value = get_value_by_path(source, src_field)
+            if value is not None:
+                # 设置目标字段的值
+                set_value_by_path(transformed, target_field, value)
+                # 删除原始字段
+                delete_value_by_path(transformed, src_field)
     
     # 对transformed的key进行排序
     transformed = dict(sorted(transformed.items()))
