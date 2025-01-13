@@ -185,7 +185,7 @@ def transform_doc(doc, field_mapping, strict_mode=False):
     return transformed
 
 
-def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, strict_mode=False):
+def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, strict_mode=False, skip=0):
     """
     执行自定义reindex操作
     
@@ -195,8 +195,7 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
         mapping_file: 字段映射文件路径
         batch_size: 批处理大小
         strict_mode: 是否启用严格模式
-            - True: 只映射在映射表中定义的字段
-            - False: 未在映射表中定义的字段直接复制
+        skip: 跳过前n个文档
     """
     # 获取ES连接
     esCli = Elasticsearch(hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
@@ -208,15 +207,29 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
 
     # 修改处理文档的方式
     action_buffer = []
-    total_processed = 0
-    success, failed = 0, 0
+    total_processed = 0  # 从0开始计数总处理数
+    success, failed = skip, 0  # 成功数从skip开始计数
 
     try:
         # 获取总文档数
         total_docs = esCli.count(index=source_index)['count']
+        
+        if skip > 0:
+            print(f"正在跳过前 {skip} 个文档...")
 
         # 使用scan遍历文档
         for doc in scan(esCli, index=source_index, scroll='5m', size=batch_size):
+            total_processed += 1
+            
+            if total_processed <= skip:  # 跳过前skip个文档
+                if total_processed % 10000 == 0:  # 每跳过10000个文档显示一次进度
+                    print(f"\r跳过进度：{total_processed}/{skip} "
+                          f"({(total_processed / skip * 100):.2f}%)", end='')
+                continue
+            
+            if total_processed == skip + 1:
+                print("\n开始处理文档...")
+                
             transformed_doc = transform_doc(doc, field_mapping, strict_mode)
             action_buffer.append({
                 '_index': target_index,
@@ -230,7 +243,6 @@ def custom_reindex(source_index, target_index, mapping_file, batch_size=1000, st
                 success_batch, failed_batch = bulk_operation(esCli, action_buffer)
                 success += success_batch
                 failed += failed_batch
-                total_processed += len(action_buffer)
 
                 print(f"\r进度：{total_processed}/{total_docs} "
                       f"({(total_processed / total_docs * 100):.2f}%) "
