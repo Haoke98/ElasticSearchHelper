@@ -133,7 +133,7 @@ def transform_doc(doc, field_mapping, strict_mode=False):
     
     # 收集数组映射信息
     array_mappings = {}  # 存储数组相关的映射信息
-    field_excludes = {}  # 存储每个数组需要排除的字段
+    array_field_mappings = {}  # 存储数组内部字段的映射信息
     
     # 首先收集所有映射信息
     for src_field, target_field in field_mapping.items():
@@ -143,14 +143,33 @@ def transform_doc(doc, field_mapping, strict_mode=False):
             array_path = '.'.join(parts[:-1])  # 如: jobInfoData.dataList
             field_name = parts[-1]  # 如: entName
             
-            if array_path not in field_excludes:
-                field_excludes[array_path] = set()
+            if array_path not in array_field_mappings:
+                array_field_mappings[array_path] = {}
             
-            if not target_field:  # 如果目标字段为空，加入排除列表
-                field_excludes[array_path].add(field_name)
+            if target_field:
+                # 获取目标字段的最后一部分作为新的字段名
+                target_parts = target_field.split('.')
+                new_field_name = target_parts[-1]
+                array_field_mappings[array_path][field_name] = new_field_name
+            else:
+                array_field_mappings[array_path][field_name] = None
+                
         elif parts[-1] == 'dataList':
             # 记录数组本身的映射
             array_mappings[src_field] = target_field
+    
+    # 先处理数组内部字段的映射
+    for array_path, field_mappings in array_field_mappings.items():
+        value = get_value_by_path(source, array_path)
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    # 重命名或删除字段
+                    for old_field, new_field in field_mappings.items():
+                        if old_field in item:
+                            if new_field:  # 如果有新字段名，则重命名
+                                item[new_field] = item[old_field]
+                            del item[old_field]  # 删除旧字段
     
     # 按照映射表重构文档
     for src_field, target_field in field_mapping.items():
@@ -161,20 +180,6 @@ def transform_doc(doc, field_mapping, strict_mode=False):
         # 获取源字段的值
         value = get_value_by_path(source, src_field)
         if value is not None:
-            if src_field in array_mappings:
-                # 处理数组字段
-                if isinstance(value, list):
-                    # 过滤数组中每个对象的字段
-                    filtered_value = []
-                    exclude_fields = field_excludes.get(src_field, set())
-                    for item in value:
-                        if isinstance(item, dict):
-                            filtered_item = {k: v for k, v in item.items() 
-                                          if k not in exclude_fields}
-                            if filtered_item:  # 只有当过滤后的对象非空时才添加
-                                filtered_value.append(filtered_item)
-                    value = filtered_value
-            
             # 设置目标字段的值
             set_value_by_path(transformed, target_field, value)
             # 删除原始字段
