@@ -66,7 +66,7 @@ def generate_full(input_csv_fp: str, output_json_fp: str, obj2nested: bool = Fal
                 # 如果上一个字段是text, 则这是一个multi-field字段, multi-field字段是不支持nested类型, 只支持keyword类型
                 # Type [nested] cannot be used in multi field
                 field_data["type"] = "nested"
-                field_data["dynamic"] = False
+                field_data["dynamic"] = "strict"
                 type_nested_count += 1
             field_properties = {}
             children = get_all_children(_field_full_name, fields)
