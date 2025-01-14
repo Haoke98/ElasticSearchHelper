@@ -11,6 +11,7 @@ import os
 
 import click
 from dotenv import load_dotenv
+from elasticsearch import Elasticsearch
 
 from es_helper.constants import APP_HOME_DIR, EXPORT_DIR
 from es_helper.map import generate_full, generate_simplified, generate_meaning_guessed_field_table, \
@@ -19,6 +20,7 @@ from es_helper.map import generate_full, generate_simplified, generate_meaning_g
 from es_helper.map.reindex import custom_reindex
 from es_helper.task import task
 from es_helper import version
+from es_helper.map.template import update_template_mapping
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if not os.path.exists(APP_HOME_DIR):
@@ -107,6 +109,43 @@ def version():
     click.echo(f"author: {version.__author__}")
     click.echo(f"author email: {version.__email__}")
     click.echo(f"project url: {version.__url__}")
+
+
+@main.command()
+@click.option("-i", "--input", help="input file,[Must be an CSV]", required=True)
+@click.option("-t", "--template", help="Template name to update", required=True)
+@click.option("--obj2nested", flag_value=True, default=False)
+@click.option("-f", "--full", help="Generate on full mode.", flag_value=True, default=False)
+def update_template(input, template, full, obj2nested):
+    """
+    生成mapping并更新到指定的索引模板
+    """
+    # 生成临时mapping文件
+    temp_mapping_file = os.path.join(EXPORT_DIR,
+                                    f"temp-mapping-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.json")
+    
+    # 生成mapping
+    if full:
+        generate_full(input, temp_mapping_file, obj2nested)
+    else:
+        generate_simplified(input, temp_mapping_file, obj2nested)
+    
+    try:
+        # 创建ES客户端
+        es_client = Elasticsearch(
+            hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
+            basic_auth=(os.getenv("SLRC_ES_USERNAME"), os.getenv("SLRC_ES_PASSWORD")),
+            ca_certs=os.getenv("SLRC_ES_CA"),
+            request_timeout=3600
+        )
+        
+        # 更新模板
+        update_template_mapping(es_client, template, temp_mapping_file)
+        
+    finally:
+        # 清理临时文件
+        if os.path.exists(temp_mapping_file):
+            os.remove(temp_mapping_file)
 
 
 if __name__ == '__main__':
