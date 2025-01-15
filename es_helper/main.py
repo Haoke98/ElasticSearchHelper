@@ -21,6 +21,7 @@ from es_helper.map.reindex import custom_reindex
 from es_helper.task import task
 from es_helper import version
 from es_helper.map.template import update_template_mapping
+from es_helper.aggs.export import export_aggs_to_csv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if not os.path.exists(APP_HOME_DIR):
@@ -146,6 +147,39 @@ def update_template(input, template, full, obj2nested):
         # 清理临时文件
         if os.path.exists(temp_mapping_file):
             os.remove(temp_mapping_file)
+
+
+@main.command()
+@click.option("-i", "--index", help="索引名称", prompt="请输入索引名称")
+@click.option("-f", "--field", help="聚合字段", prompt="请输入要聚合的字段名")
+@click.option("-s", "--size", help="聚合桶的大小", default=10000, type=int, 
+              prompt="请输入聚合桶的大小(默认10000)", 
+              prompt_required=False)  # prompt_required=False表示有默认值时不提示
+def export_aggs(index, field, size):
+    """
+    导出字段聚合结果到CSV文件
+    """
+    try:
+        # 创建ES客户端
+        es_client = Elasticsearch(
+            hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
+            basic_auth=(os.getenv("SLRC_ES_USERNAME"), os.getenv("SLRC_ES_PASSWORD")),
+            ca_certs=os.getenv("SLRC_ES_CA"),
+            request_timeout=3600
+        )
+        
+        # 执行导出
+        csv_path, aggs_result = export_aggs_to_csv(es_client, index, field, size)
+        
+        # 打印结果
+        click.echo(f"聚合结果已导出到: {csv_path}")
+        click.echo(f"总计 {len(aggs_result['buckets'])} 个唯一值")
+        click.echo(f"文档总数: {sum(bucket['doc_count'] for bucket in aggs_result['buckets'])}")
+        
+    except ValueError as e:
+        click.echo(f"错误: {str(e)}", err=True)
+    except Exception as e:
+        click.echo(f"发生错误: {str(e)}", err=True)
 
 
 if __name__ == '__main__':
