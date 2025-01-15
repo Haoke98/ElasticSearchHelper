@@ -152,8 +152,8 @@ def update_template(input, template, full, obj2nested):
 @main.command()
 @click.option("-i", "--index", help="索引名称", prompt="请输入索引名称")
 @click.option("-f", "--field", help="聚合字段", prompt="请输入要聚合的字段名")
-@click.option("-s", "--size", help="聚合桶的大小", default=10000, type=int, 
-              prompt="请输入聚合桶的大小(默认10000)", 
+@click.option("-s", "--size", help="聚合桶的大小(最大655360)", default=10000, type=click.IntRange(1, 655360),
+              prompt="请输入聚合桶的大小(默认10000，最大655360)", 
               prompt_required=False)
 def export_aggs(index, field, size):
     """
@@ -179,12 +179,12 @@ def export_aggs(index, field, size):
         
     except ValueError as e:
         click.echo(f"错误: {str(e)}", err=True)
-    except Exception as e:
-        click.echo(f"发生错误: {str(e)}", err=True)
-        click.echo("可能的解决方案：", err=True)
-        click.echo(f"1. 减小聚合桶的大小（当前：{size}）", err=True)
-        click.echo("2. 确保字段名称正确且已建立索引", err=True)
-        click.echo("3. 检查集群状态和资源使用情况", err=True)
+    # except Exception as e:
+    #     click.echo(f"发生错误: {str(e)}", err=True)
+    #     click.echo("可能的解决方案：", err=True)
+    #     click.echo(f"1. 减小聚合桶的大小（当前：{size}）", err=True)
+    #     click.echo("2. 确保字段名称正确且已建立索引", err=True)
+    #     click.echo("3. 检查集群状态和资源使用情况", err=True)
 
 
 if __name__ == '__main__':
