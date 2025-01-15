@@ -33,6 +33,6 @@ if __name__ == '__main__':
     # _id =
     # _id =
     # _id =
-    target_documents = ['91410200769463127C', '91211121059812484C', '91350203MA344PKP8K']
+    target_documents = ['91100000100003962T','91410200769463127C', '91211121059812484C', '91350203MA344PKP8K']
     for _id in target_documents:
         small_scale_testing(_id, 'ent-mdsi-v4', 'ent-mdsi-v6')
