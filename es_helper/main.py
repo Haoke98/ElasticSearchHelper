@@ -154,7 +154,7 @@ def update_template(input, template, full, obj2nested):
 @click.option("-f", "--field", help="聚合字段", prompt="请输入要聚合的字段名")
 @click.option("-s", "--size", help="聚合桶的大小", default=10000, type=int, 
               prompt="请输入聚合桶的大小(默认10000)", 
-              prompt_required=False)  # prompt_required=False表示有默认值时不提示
+              prompt_required=False)
 def export_aggs(index, field, size):
     """
     导出字段聚合结果到CSV文件
@@ -165,14 +165,15 @@ def export_aggs(index, field, size):
             hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
             basic_auth=(os.getenv("SLRC_ES_USERNAME"), os.getenv("SLRC_ES_PASSWORD")),
             ca_certs=os.getenv("SLRC_ES_CA"),
-            request_timeout=3600
+            request_timeout=7200  # 增加客户端默认超时时间到2小时
         )
         
         # 执行导出
+        click.echo("开始执行聚合查询...")
         csv_path, aggs_result = export_aggs_to_csv(es_client, index, field, size)
         
         # 打印结果
-        click.echo(f"聚合结果已导出到: {csv_path}")
+        click.echo(f"\n聚合结果已导出到: {csv_path}")
         click.echo(f"总计 {len(aggs_result['buckets'])} 个唯一值")
         click.echo(f"文档总数: {sum(bucket['doc_count'] for bucket in aggs_result['buckets'])}")
         
@@ -180,6 +181,10 @@ def export_aggs(index, field, size):
         click.echo(f"错误: {str(e)}", err=True)
     except Exception as e:
         click.echo(f"发生错误: {str(e)}", err=True)
+        click.echo("可能的解决方案：", err=True)
+        click.echo(f"1. 减小聚合桶的大小（当前：{size}）", err=True)
+        click.echo("2. 确保字段名称正确且已建立索引", err=True)
+        click.echo("3. 检查集群状态和资源使用情况", err=True)
 
 
 if __name__ == '__main__':
