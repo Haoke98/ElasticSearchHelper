@@ -257,31 +257,42 @@ def analyze_field_coverage(input, index, output, batch_size, delimiter, field_co
             
             # 根据字段类型构建查询
             if field_type == "nested":
-                # 处理nested类型字段
+                # 这是一个嵌套字段本身 (如 "bidData")
+                query = {
+                    "nested": {
+                        "path": field_name,
+                        "query": {
+                            "match_all": {}
+                        }
+                    }
+                }
+            elif "." in field_name and not field_name.endswith(".keyword"):
+                # 这可能是嵌套字段的子字段 (如 "bidData.mid")
                 path_parts = field_name.split('.')
-                if len(path_parts) > 1:
-                    # 获取nested路径（去掉最后一个部分）
-                    nested_path = '.'.join(path_parts[:-1])
-                    query = {
-                        "nested": {
-                            "path": nested_path,
-                            "query": {
-                                "exists": {
-                                    "field": field_name
-                                }
+                # 检查父路径是否是嵌套字段
+                parent_path = path_parts[0]  # 获取第一级路径
+                
+                # 假设如果字段名中有点，且不是keyword结尾，那么它的顶层父字段是嵌套的
+                query = {
+                    "nested": {
+                        "path": parent_path,
+                        "query": {
+                            "exists": {
+                                "field": field_name
                             }
                         }
                     }
-                else:
-                    # 如果字段名不包含点，则使用普通exists查询
-                    query = {"exists": {"field": field_name}}
+                }
             else:
-                # 非nested类型字段使用标准exists查询
+                # 非嵌套字段使用标准exists查询
                 query = {"exists": {"field": field_name}}
             
             # 执行查询
             try:
                 field_count = es_client.count(index=index, query=query)["count"]
+                # 输出一些调试信息，帮助理解查询过程
+                if field_type == "nested" or "." in field_name:
+                    click.echo(f"字段 {field_name} 查询: {query} => 结果: {field_count}")
             except Exception as e:
                 click.echo(f"查询字段 {field_name} 时出错: {str(e)}", err=True)
                 field_count = 0
