@@ -194,18 +194,22 @@ def export_aggs(index, field, size):
 @click.option("-idx", "--index", help="要分析的ES索引名称", required=True)
 @click.option("-o", "--output", help="输出CSV文件路径")
 @click.option("-b", "--batch-size", default=1000, help="每批处理的字段数量", type=int)
-def analyze_field_coverage(input, index, output, batch_size):
+@click.option("-d", "--delimiter", default="|", help="CSV文件分隔符", type=str)
+@click.option("--field-col", default=0, help="字段名称列索引", type=int)
+@click.option("--type-col", default=1, help="字段类型列索引", type=int)
+def analyze_field_coverage(input, index, output, batch_size, delimiter, field_col, type_col):
     """
     分析索引中字段的覆盖率
 
-    输入CSV格式：字段名|数据类型|字段说明|状态
-    输出CSV格式：字段名|数据类型|字段说明|状态|count|proportion
+    默认输入CSV格式：字段名|数据类型|字段说明|状态
+    输出CSV格式：将在原CSV基础上添加count和proportion列
+    
     """
     # 如果未指定输出文件，则基于输入文件生成默认输出文件名
     if output is None:
         output = os.path.join(EXPORT_DIR,
-                              f"{os.path.splitext(os.path.basename(input))[0]}-coverage-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
-
+                             f"{os.path.splitext(os.path.basename(input))[0]}-coverage-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
+    
     # 创建ES客户端
     es_client = Elasticsearch(
         hosts=os.getenv('SLRC_ES_PROTOCOL') + "://" + os.getenv("SLRC_ES_HOST"),
@@ -221,71 +225,88 @@ def analyze_field_coverage(input, index, output, batch_size):
     # 读取字段映射CSV文件
     fields = []
     with open(input, 'r', encoding='utf-8') as f:
-        reader = csv.reader(f, delimiter='|')
+        reader = csv.reader(f, delimiter=delimiter)
         headers = next(reader)  # 读取表头
         for row in reader:
-            fields.append(row)
-
+            if row:  # 确保行不为空
+                fields.append(row)
+    
+    # 打印CSV信息供调试
+    click.echo(f"CSV表头: {headers}")
+    click.echo(f"读取到 {len(fields)} 行数据")
+    if fields:
+        click.echo(f"第一行数据示例: {fields[0]}")
+    
     # 准备新的CSV表头（添加count和proportion列）
     new_headers = headers + ["count", "proportion"]
-
+    
     # 分析每个字段的覆盖率
     results = []
     click.echo(f"正在分析 {len(fields)} 个字段的覆盖率...")
-
+    
     # 使用tqdm显示进度
     for field_data in tqdm(fields, desc="分析字段覆盖率"):
-        field_name = field_data[0]
-        field_type = field_data[1]
-
-        # 根据字段类型构建查询
-        if field_type == "nested":
-            # 处理nested类型字段
-            path_parts = field_name.split('.')
-            if len(path_parts) > 1:
-                # 获取nested路径（去掉最后一个部分）
-                nested_path = '.'.join(path_parts[:-1])
-                query = {
-                    "nested": {
-                        "path": nested_path,
-                        "query": {
-                            "exists": {
-                                "field": field_name
+        try:
+            # 安全获取字段名和类型，处理索引超出范围的情况
+            field_name = field_data[field_col] if field_col < len(field_data) else ''
+            field_type = field_data[type_col] if type_col < len(field_data) else 'unknown'
+            
+            if not field_name:  # 如果字段名为空，跳过
+                click.echo(f"警告: 跳过空字段名的行: {field_data}")
+                continue
+            
+            # 根据字段类型构建查询
+            if field_type == "nested":
+                # 处理nested类型字段
+                path_parts = field_name.split('.')
+                if len(path_parts) > 1:
+                    # 获取nested路径（去掉最后一个部分）
+                    nested_path = '.'.join(path_parts[:-1])
+                    query = {
+                        "nested": {
+                            "path": nested_path,
+                            "query": {
+                                "exists": {
+                                    "field": field_name
+                                }
                             }
                         }
                     }
-                }
+                else:
+                    # 如果字段名不包含点，则使用普通exists查询
+                    query = {"exists": {"field": field_name}}
             else:
-                # 如果字段名不包含点，则使用普通exists查询
+                # 非nested类型字段使用标准exists查询
                 query = {"exists": {"field": field_name}}
-        else:
-            # 非nested类型字段使用标准exists查询
-            query = {"exists": {"field": field_name}}
-
-        # 执行查询
-        try:
-            field_count = es_client.count(index=index, query=query)["count"]
+            
+            # 执行查询
+            try:
+                field_count = es_client.count(index=index, query=query)["count"]
+            except Exception as e:
+                click.echo(f"查询字段 {field_name} 时出错: {str(e)}", err=True)
+                field_count = 0
+            
+            # 计算覆盖率
+            coverage = field_count / total_docs if total_docs > 0 else 0
+            
+            # 添加count和proportion到字段数据
+            row_with_coverage = field_data + [
+                str(field_count), 
+                f"{coverage:.4f}"  # 四位小数的覆盖率
+            ]
+            results.append(row_with_coverage)
+            
         except Exception as e:
-            click.echo(f"查询字段 {field_name} 时出错: {str(e)}", err=True)
-            field_count = 0
-
-        # 计算覆盖率
-        coverage = field_count / total_docs if total_docs > 0 else 0
-
-        # 添加count和proportion到字段数据
-        row_with_coverage = field_data + [
-            str(field_count),
-            f"{coverage:.4f}"  # 四位小数的覆盖率
-        ]
-        results.append(row_with_coverage)
-
+            click.echo(f"处理行 {field_data} 时出错: {str(e)}", err=True)
+            continue
+    
     # 写入结果到CSV文件
     os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)
     with open(output, 'w', encoding='utf-8', newline='') as f:
-        writer = csv.writer(f, delimiter='|')
+        writer = csv.writer(f, delimiter=delimiter)
         writer.writerow(new_headers)
         writer.writerows(results)
-
+    
     click.echo(f"\n字段覆盖率分析完成，结果已保存到: {output}")
 
 
