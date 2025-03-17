@@ -194,19 +194,19 @@ def export_aggs(index, field, size):
 @click.option("-idx", "--index", help="要分析的ES索引名称", required=True)
 @click.option("-o", "--output", help="输出CSV文件路径")
 @click.option("-b", "--batch-size", default=1000, help="每批处理的字段数量", type=int)
-@click.option("-d", "--delimiter", default="|", help="CSV文件分隔符", type=str)
+@click.option("-d", "--delimiter", default=",", help="CSV文件分隔符", type=str)
 @click.option("--field-col", default=0, help="字段名称列索引", type=int)
 @click.option("--type-col", default=1, help="字段类型列索引", type=int)
 @click.option("--count-col", default=4, help="Count列索引", type=int)
 @click.option("--proportion-col", default=5, help="Proportion列索引", type=int)
 @click.option("--update-existing", is_flag=True, default=True, help="更新现有的Count和Proportion列而不是添加新列")
-def analyze_field_coverage(input, index, output, batch_size, delimiter, field_col, type_col, count_col, proportion_col, update_existing):
+@click.option("--safe-nested", is_flag=True, default=True, help="安全模式处理嵌套字段查询(避免嵌套路径不存在错误)")
+def analyze_field_coverage(input, index, output, batch_size, delimiter, field_col, type_col, count_col, proportion_col, update_existing, safe_nested):
     """
     分析索引中字段的覆盖率
-
+    
     默认输入CSV格式：字段名|数据类型|字段说明|状态|Count|Proportion
     输出CSV格式：更新现有Count和Proportion列的值
-    
     """
     # 如果未指定输出文件，则基于输入文件生成默认输出文件名
     if output is None:
@@ -224,6 +224,30 @@ def analyze_field_coverage(input, index, output, batch_size, delimiter, field_co
     # 获取索引总文档数
     total_docs = es_client.count(index=index)["count"]
     click.echo(f"索引 {index} 共有 {total_docs} 个文档")
+    
+    # 获取索引映射，找出真正的嵌套字段
+    actual_nested_fields = set()
+    if safe_nested:
+        try:
+            mapping = es_client.indices.get_mapping(index=index)
+            # 处理映射，提取嵌套字段路径
+            index_mappings = list(mapping.values())[0]['mappings']
+            
+            def extract_nested_paths(properties, parent_path=""):
+                for field_name, field_info in properties.items():
+                    current_path = f"{parent_path}.{field_name}" if parent_path else field_name
+                    if field_info.get('type') == 'nested':
+                        actual_nested_fields.add(current_path)
+                    if 'properties' in field_info:
+                        extract_nested_paths(field_info['properties'], current_path)
+            
+            if 'properties' in index_mappings:
+                extract_nested_paths(index_mappings['properties'])
+            
+            click.echo(f"从索引中检测到的嵌套字段: {sorted(actual_nested_fields)}")
+        except Exception as e:
+            click.echo(f"获取索引映射时出错: {str(e)}")
+            click.echo("将使用CSV文件中的类型信息进行查询构建")
 
     # 读取字段映射CSV文件
     fields = []
@@ -255,47 +279,72 @@ def analyze_field_coverage(input, index, output, batch_size, delimiter, field_co
                 click.echo(f"警告: 跳过空字段名的行: {field_data}")
                 continue
             
-            # 根据字段类型构建查询
-            if field_type == "nested":
-                # 这是一个嵌套字段本身 (如 "bidData")
-                query = {
-                    "nested": {
-                        "path": field_name,
-                        "query": {
-                            "match_all": {}
-                        }
-                    }
-                }
-            elif "." in field_name and not field_name.endswith(".keyword"):
-                # 这可能是嵌套字段的子字段 (如 "bidData.mid")
+            # 判断嵌套查询策略
+            use_nested_query = False
+            nested_path = None
+            
+            # 处理嵌套字段和嵌套字段的子字段
+            if "." in field_name:
                 path_parts = field_name.split('.')
-                # 检查父路径是否是嵌套字段
-                parent_path = path_parts[0]  # 获取第一级路径
-                
-                # 假设如果字段名中有点，且不是keyword结尾，那么它的顶层父字段是嵌套的
-                query = {
-                    "nested": {
-                        "path": parent_path,
-                        "query": {
-                            "exists": {
-                                "field": field_name
+                for i in range(len(path_parts)):
+                    # 尝试各种可能的父路径
+                    potential_path = '.'.join(path_parts[:i+1])
+                    if potential_path in actual_nested_fields:
+                        nested_path = potential_path
+                        use_nested_query = True
+                        break
+            elif field_type == 'nested' and field_name in actual_nested_fields:
+                nested_path = field_name
+                use_nested_query = True
+            
+            # 构建查询
+            if use_nested_query and nested_path:
+                # 使用嵌套查询
+                if field_name == nested_path:
+                    # 字段本身是嵌套字段
+                    query = {
+                        "nested": {
+                            "path": nested_path,
+                            "query": {
+                                "match_all": {}
                             }
                         }
                     }
-                }
+                else:
+                    # 嵌套字段的子字段
+                    query = {
+                        "nested": {
+                            "path": nested_path,
+                            "query": {
+                                "exists": {
+                                    "field": field_name
+                                }
+                            }
+                        }
+                    }
             else:
-                # 非嵌套字段使用标准exists查询
+                # 使用普通exists查询
                 query = {"exists": {"field": field_name}}
             
             # 执行查询
             try:
                 field_count = es_client.count(index=index, query=query)["count"]
-                # 输出一些调试信息，帮助理解查询过程
+                # 只为嵌套字段输出调试信息
                 if field_type == "nested" or "." in field_name:
-                    click.echo(f"字段 {field_name} 查询: {query} => 结果: {field_count}")
+                    if use_nested_query:
+                        click.echo(f"字段 {field_name} 使用嵌套查询(路径:{nested_path}): 结果: {field_count}")
+                    else:
+                        click.echo(f"字段 {field_name} 使用普通查询: 结果: {field_count}")
             except Exception as e:
                 click.echo(f"查询字段 {field_name} 时出错: {str(e)}", err=True)
-                field_count = 0
+                # 尝试使用普通exists查询作为后备
+                try:
+                    fallback_query = {"exists": {"field": field_name}}
+                    field_count = es_client.count(index=index, query=fallback_query)["count"]
+                    click.echo(f"字段 {field_name} 回退到普通查询: 结果: {field_count}")
+                except Exception as fallback_error:
+                    click.echo(f"回退查询也失败: {str(fallback_error)}", err=True)
+                    field_count = 0
             
             # 计算覆盖率
             coverage = field_count / total_docs if total_docs > 0 else 0
@@ -312,7 +361,7 @@ def analyze_field_coverage(input, index, output, batch_size, delimiter, field_co
                 new_row[count_col] = str(field_count)
                 new_row[proportion_col] = f"{coverage:.4f}"
             else:
-                # 添加新列（与之前的逻辑一致）
+                # 添加新列
                 new_row += [str(field_count), f"{coverage:.4f}"]
             
             results.append(new_row)
