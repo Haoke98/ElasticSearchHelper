@@ -197,12 +197,15 @@ def export_aggs(index, field, size):
 @click.option("-d", "--delimiter", default="|", help="CSV文件分隔符", type=str)
 @click.option("--field-col", default=0, help="字段名称列索引", type=int)
 @click.option("--type-col", default=1, help="字段类型列索引", type=int)
-def analyze_field_coverage(input, index, output, batch_size, delimiter, field_col, type_col):
+@click.option("--count-col", default=4, help="Count列索引", type=int)
+@click.option("--proportion-col", default=5, help="Proportion列索引", type=int)
+@click.option("--update-existing", is_flag=True, default=True, help="更新现有的Count和Proportion列而不是添加新列")
+def analyze_field_coverage(input, index, output, batch_size, delimiter, field_col, type_col, count_col, proportion_col, update_existing):
     """
     分析索引中字段的覆盖率
 
-    默认输入CSV格式：字段名|数据类型|字段说明|状态
-    输出CSV格式：将在原CSV基础上添加count和proportion列
+    默认输入CSV格式：字段名|数据类型|字段说明|状态|Count|Proportion
+    输出CSV格式：更新现有Count和Proportion列的值
     
     """
     # 如果未指定输出文件，则基于输入文件生成默认输出文件名
@@ -237,10 +240,7 @@ def analyze_field_coverage(input, index, output, batch_size, delimiter, field_co
     if fields:
         click.echo(f"第一行数据示例: {fields[0]}")
     
-    # 准备新的CSV表头（添加count和proportion列）
-    new_headers = headers + ["count", "proportion"]
-    
-    # 分析每个字段的覆盖率
+    # 准备输出的结果
     results = []
     click.echo(f"正在分析 {len(fields)} 个字段的覆盖率...")
     
@@ -289,16 +289,32 @@ def analyze_field_coverage(input, index, output, batch_size, delimiter, field_co
             # 计算覆盖率
             coverage = field_count / total_docs if total_docs > 0 else 0
             
-            # 添加count和proportion到字段数据
-            row_with_coverage = field_data + [
-                str(field_count), 
-                f"{coverage:.4f}"  # 四位小数的覆盖率
-            ]
-            results.append(row_with_coverage)
+            # 创建新行，更新或添加count和proportion值
+            new_row = list(field_data)  # 复制原始行
+            
+            if update_existing:
+                # 确保行长度足够存放count和proportion
+                while len(new_row) <= max(count_col, proportion_col):
+                    new_row.append('')
+                
+                # 更新现有列
+                new_row[count_col] = str(field_count)
+                new_row[proportion_col] = f"{coverage:.4f}"
+            else:
+                # 添加新列（与之前的逻辑一致）
+                new_row += [str(field_count), f"{coverage:.4f}"]
+            
+            results.append(new_row)
             
         except Exception as e:
             click.echo(f"处理行 {field_data} 时出错: {str(e)}", err=True)
             continue
+    
+    # 准备输出的表头
+    if update_existing:
+        new_headers = list(headers)  # 使用原有表头
+    else:
+        new_headers = list(headers) + ["count", "proportion"]  # 添加新列
     
     # 写入结果到CSV文件
     os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)
